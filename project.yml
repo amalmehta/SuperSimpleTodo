@@ -1,0 +1,42 @@
+name: SuperSimpleTodo
+options:
+  bundleIdPrefix: com.amalmehta
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  Super Simple Todo:
+    type: application
+    platform: macOS
+    sources: ["Super Simple Todo"]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.amalmehta.SuperSimpleTodo
+        PRODUCT_NAME: Super Simple Todo
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Super Simple Todo
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        CODE_SIGN_IDENTITY: "-"
+        ENABLE_HARDENED_RUNTIME: NO
+  Tests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [Tests]
+    dependencies:
+      - target: Super Simple Todo
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Super Simple Todo.app/Contents/MacOS/Super Simple Todo"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+schemes:
+  Super Simple Todo:
+    build:
+      targets:
+        Super Simple Todo: all
+    test:
+      targets: [Tests]
