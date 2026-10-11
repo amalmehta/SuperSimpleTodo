@@ -13,8 +13,20 @@ struct ContentView: View {
 struct TasksView: View {
     @EnvironmentObject private var store: TaskStore
     @AppStorage("hideDoneTasks") private var hideDoneTasks = false
+    /// Collapsed section names, joined with newlines ("" stands for Other).
+    @AppStorage("collapsedSections") private var collapsedStorage = ""
     @State private var newTitle = ""
     @FocusState private var inputFocused: Bool
+
+    private var collapsed: Set<String> {
+        Set(collapsedStorage.split(separator: "\n", omittingEmptySubsequences: false).map(String.init))
+    }
+
+    private func toggleCollapsed(_ key: String) {
+        var set = collapsed
+        if set.contains(key) { set.remove(key) } else { set.insert(key) }
+        collapsedStorage = set.sorted().joined(separator: "\n")
+    }
 
     private var visibleTasks: [TaskItem] {
         hideDoneTasks ? store.sortedTasks.filter { !$0.isDone } : store.sortedTasks
@@ -25,7 +37,7 @@ struct TasksView: View {
             TextField("Add a task", text: $newTitle)
                 .textFieldStyle(.roundedBorder)
                 .focused($inputFocused)
-                .help("End with !, !! or !!! for Low, Medium or High priority")
+                .help("Add #section to file it (a new #name makes a new section), and !, !! or !!! for Low, Medium or High priority")
                 .onSubmit {
                     store.add(newTitle)
                     newTitle = ""
@@ -43,23 +55,24 @@ struct TasksView: View {
                 Spacer()
             } else {
                 List {
-                    ForEach(visibleTasks) { task in
-                        TaskRow(task: task) { store.toggle(task.id) }
-                            .contextMenu {
-                                Picker("Priority", selection: Binding(
-                                    get: { task.priority },
-                                    set: { store.setPriority($0, for: task.id) }
-                                )) {
-                                    ForEach(Priority.allCases.reversed()) { p in
-                                        Text(p.name).tag(p)
-                                    }
+                    ForEach(store.grouped(visibleTasks), id: \.section) { group in
+                        let key = group.section ?? ""
+                        let isCollapsed = collapsed.contains(key)
+                        Section {
+                            if !isCollapsed {
+                                ForEach(group.tasks) { task in
+                                    TaskRow(task: task) { store.toggle(task.id) }
+                                        .contextMenu { menu(for: task) }
                                 }
-                                Divider()
-                                Button("Delete", role: .destructive) { store.delete(task.id) }
+                                .onDelete { offsets in
+                                    offsets.map { group.tasks[$0].id }.forEach(store.delete)
+                                }
                             }
-                    }
-                    .onDelete { offsets in
-                        offsets.map { visibleTasks[$0].id }.forEach(store.delete)
+                        } header: {
+                            SectionHeader(name: group.section ?? "Other",
+                                          openCount: group.tasks.filter { !$0.isDone }.count,
+                                          isCollapsed: isCollapsed) { toggleCollapsed(key) }
+                        }
                     }
                 }
             }
@@ -82,6 +95,55 @@ struct TasksView: View {
             .padding(.vertical, 8)
         }
         .onAppear { inputFocused = true }
+    }
+
+    @ViewBuilder
+    private func menu(for task: TaskItem) -> some View {
+        Picker("Priority", selection: Binding(
+            get: { task.priority },
+            set: { store.setPriority($0, for: task.id) }
+        )) {
+            ForEach(Priority.allCases.reversed()) { p in
+                Text(p.name).tag(p)
+            }
+        }
+        Picker("Section", selection: Binding(
+            get: { task.section },
+            set: { store.setSection($0, for: task.id) }
+        )) {
+            ForEach(store.sections, id: \.self) { name in
+                Text(name).tag(Optional(name))
+            }
+            Divider()
+            Text("Other").tag(String?.none)
+        }
+        Divider()
+        Button("Delete", role: .destructive) { store.delete(task.id) }
+    }
+}
+
+struct SectionHeader: View {
+    let name: String
+    let openCount: Int
+    let isCollapsed: Bool
+    let onToggle: () -> Void
+
+    var body: some View {
+        Button(action: onToggle) {
+            HStack(spacing: 4) {
+                Image(systemName: "chevron.right")
+                    .rotationEffect(.degrees(isCollapsed ? 0 : 90))
+                    .font(.caption2.bold())
+                    .frame(width: 10)
+                Text(name)
+                Text("\(openCount)").foregroundStyle(.tertiary)
+                Spacer()
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(name), \(openCount) open")
+        .accessibilityHint(isCollapsed ? "Expands the section" : "Collapses the section")
     }
 }
 

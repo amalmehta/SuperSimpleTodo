@@ -156,6 +156,16 @@ struct EventRow: View {
             if let detail = event.detail {
                 Text("→ \(detail)").foregroundStyle(.secondary)
             }
+            Spacer(minLength: 4)
+            if let section = event.section {
+                Text(section)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1)
+                    .background(Color.secondary.opacity(0.12), in: Capsule())
+                    .lineLimit(1)
+            }
         }
         .accessibilityElement(children: .combine)
     }

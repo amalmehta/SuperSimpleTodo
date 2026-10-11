@@ -34,13 +34,17 @@ struct ActivityEvent: Identifiable, Codable, Equatable {
     let taskTitle: String
     /// For priority changes, the new priority's name.
     let detail: String?
+    /// The task's section at the time of the action (events before sections existed have none).
+    let section: String?
 
-    init(id: UUID = UUID(), date: Date = Date(), kind: Kind, taskTitle: String, detail: String? = nil) {
+    init(id: UUID = UUID(), date: Date = Date(), kind: Kind, taskTitle: String,
+         detail: String? = nil, section: String? = nil) {
         self.id = id
         self.date = date
         self.kind = kind
         self.taskTitle = taskTitle
         self.detail = detail
+        self.section = section
     }
 }
 

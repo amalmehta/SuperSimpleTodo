@@ -13,6 +13,7 @@ struct SuperSimpleTodoApp: App {
 
         Settings {
             SettingsView()
+                .environmentObject(store)
         }
     }
 }
