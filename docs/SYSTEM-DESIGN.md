@@ -42,7 +42,7 @@ flowchart LR
 - **Filing a task while typing:** add `#name` anywhere in it, e.g. `Run 5k #fitness !!`. The tag matches an existing section ignoring case. An unknown tag creates a section on the spot: `#deep-work` becomes "Deep work". The tag must start with a letter, so "#1" and "C#" stay part of the title. If you type two tags, the first one wins.
 - **Moving a task later:** right-click ▸ Section ▸ any section, or Other.
 - **Managing sections:** Settings (⌘,) ▸ Sections lets you add, rename (tasks follow), delete (tasks move to Other) and drag to reorder.
-- **The list:** one header per section in Settings order, then **Other** for unfiled tasks. Each header shows how many open tasks it has and collapses with a click; collapsed sections are remembered. Sections with no visible tasks are hidden. Within a section, tasks sort by priority.
+- **The list:** one header per section in Settings order, then **Other** for unfiled tasks. Each header shows how many open tasks it has and collapses with a click; collapsed sections are remembered. Every section always shows, even when empty; an empty one shows a hint such as "Add one with #fitness". "Other" appears only when there are unfiled tasks. Within a section, tasks sort by priority.
 - **Activity:** each timeline row shows the task's section at the time of the action as a small grey label.
 
 ## Priorities and colors

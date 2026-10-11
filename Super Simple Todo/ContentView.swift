@@ -48,7 +48,7 @@ struct TasksView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
 
-            if visibleTasks.isEmpty {
+            if visibleTasks.isEmpty && store.sections.isEmpty {
                 Spacer()
                 Text(store.tasks.isEmpty ? "No tasks yet" : "All done")
                     .foregroundStyle(.secondary)
@@ -66,6 +66,11 @@ struct TasksView: View {
                                 }
                                 .onDelete { offsets in
                                     offsets.map { group.tasks[$0].id }.forEach(store.delete)
+                                }
+                                if group.tasks.isEmpty, let name = group.section {
+                                    Text("Add one with #\(name.lowercased().replacingOccurrences(of: " ", with: "-"))")
+                                        .font(.callout)
+                                        .foregroundStyle(.tertiary)
                                 }
                             }
                         } header: {

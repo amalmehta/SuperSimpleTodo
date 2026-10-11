@@ -150,8 +150,11 @@ final class TaskStoreTests: XCTestCase {
         let store = TaskStore(fileURL: fileURL)
         store.add("a"); store.add("b #work"); store.add("c #daily"); store.add("d #work !!!")
         let groups = store.grouped(store.sortedTasks)
-        XCTAssertEqual(groups.map(\.section), ["Daily", "Work", nil])
-        XCTAssertEqual(groups[1].tasks.map(\.title), ["d", "b"])
+        XCTAssertEqual(groups.map(\.section), ["Daily", "Fitness", "Work", "Study", nil])
+        XCTAssertEqual(groups.map(\.tasks.count), [1, 0, 2, 0, 1])
+        XCTAssertEqual(groups[2].tasks.map(\.title), ["d", "b"])
+        store.delete(store.tasks[0].id)   // no unfiled tasks left: no "Other" group
+        XCTAssertEqual(store.grouped(store.sortedTasks).map(\.section), ["Daily", "Fitness", "Work", "Study"])
     }
 
     func testRenameAndDeleteSection() {

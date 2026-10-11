@@ -41,14 +41,12 @@ final class TaskStore: ObservableObject {
             .map(\.element)
     }
 
-    /// Sections in order, each with its tasks sorted by priority, then "Other" (nil) for unfiled tasks.
-    /// Sections with no tasks are left out.
+    /// Every section in order (empty ones too, so they're always visible), each with its tasks
+    /// sorted by priority, then "Other" (nil) for unfiled tasks if there are any.
     func grouped(_ visible: [TaskItem]) -> [(section: String?, tasks: [TaskItem])] {
-        let groups: [String?] = sections.map { $0 } + [nil]
-        return groups.compactMap { name in
-            let inGroup = visible.filter { $0.section == name }
-            return inGroup.isEmpty ? nil : (name, inGroup)
-        }
+        let other = visible.filter { $0.section == nil }
+        return sections.map { name in (name, visible.filter { $0.section == name }) }
+            + (other.isEmpty ? [] : [(nil, other)])
     }
 
     /// Adds a task. Words like "!", "!!" or "!!!" set Low, Medium or High priority, and a "#word"
