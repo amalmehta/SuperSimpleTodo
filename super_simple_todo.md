@@ -62,7 +62,17 @@ Asked and answered (2026-10-10, priorities, colors and activity):
 - Color meanings: a one-line key under the input field, plus a hover tooltip on each circle.
 - Activity: a "Tasks | Activity" tab switcher in the main window. Logs added, completed, unticked, deleted/cleared and priority changes. Stacked bars per day (7/14/30 days) over a timeline.
 
+Asked and answered (2026-10-11, sections):
+- Layout: grouped, collapsible headers in one list, then "Other" for unfiled tasks.
+- Filing and creating sections on the fly: type #name in a task ("Run 5k #fitness !!"); an unknown #name creates the section. Right-click ▸ Section moves a task.
+- Starting sections: Daily, Fitness, Work, Study.
+- Activity: each timeline row shows the task's section.
+
 Decided without asking:
+- Section rename, delete and reorder live in Settings ▸ Sections (deleting moves tasks to Other).
+- #tags must start with a letter ("#1", "C#" stay in the title); "#deep-work" becomes "Deep work"; the first tag wins; one section per task.
+- Empty sections are hidden from the list; collapsed sections are remembered.
+- Moving a task between sections isn't an Activity event (it wasn't in the chosen list of actions).
 - Activity chart colors come from a separate palette checked for color-blind separation (blue, orange, aqua, yellow, pink), with a legend; the timeline also uses icons.
 - History from before tracking started is filled in only as "Added" events, from task creation dates.
 - Activity saved as Activity.json next to Tasks.json; the log is never trimmed.
@@ -75,6 +85,7 @@ Decided without asking:
 
 CHANGELOG:
 
+- 2026-10-11 — added sections: #tag filing with on-the-fly creation, collapsible grouped headers, right-click ▸ Section, Settings ▸ Sections (add/rename/delete/reorder), section shown in the Activity timeline; 17 unit tests
 - 2026-10-10 — added priorities (High/Medium/Low, colored circles, color key, auto-sort), an Activity tab (daily chart + timeline of every action) and a -TasksFile option for sample data; 12 unit tests
 - 2026-10-06 — built the Mac app (checklist, Settings with "Hide done tasks", JSON storage, 6 unit tests) and docs/SYSTEM-DESIGN.md; feedback tab skipped at the owner's request
 - 2026-10-06 — created
