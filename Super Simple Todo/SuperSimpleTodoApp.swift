@@ -9,7 +9,7 @@ struct SuperSimpleTodoApp: App {
             ContentView()
                 .environmentObject(store)
         }
-        .defaultSize(width: 380, height: 480)
+        .defaultSize(width: 420, height: 560)
 
         Settings {
             SettingsView()

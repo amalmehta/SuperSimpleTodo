@@ -1,19 +1,23 @@
 # Super Simple Todo — System Design
 
-A single-window Mac checklist: add tasks, tick them off, clear the finished ones.
+A single-window Mac checklist with priorities. You add tasks, tick them off, and clear the finished ones. An Activity tab charts what you've done over time.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    User((You)) -->|type, tick, delete| CV[ContentView<br/>main window]
+    User((You)) -->|type, tick, prioritize, delete| TV[Tasks tab<br/>TasksView]
+    User -->|browse history| AV[Activity tab<br/>ActivityView]
     User -->|⌘,| SV[SettingsView<br/>Settings window]
-    CV -->|add / toggle / delete / clearDone| TS[TaskStore<br/>ObservableObject]
-    TS -->|@Published tasks| CV
-    TS -->|save after every change| JSON[(Tasks.json<br/>Application Support)]
-    JSON -->|load on launch| TS
+    TV -->|add / toggle / setPriority / delete / clearDone| TS[TaskStore<br/>ObservableObject]
+    TS -->|"@Published tasks (sorted)"| TV
+    TS -->|"@Published events"| AV
+    TS -->|save after every change| TJ[(Tasks.json)]
+    TS -->|save after every change| AJ[(Activity.json)]
+    TJ & AJ -->|load on launch| TS
     SV -->|hideDoneTasks| UD[(UserDefaults)]
-    UD -->|@AppStorage| CV
+    AV -->|activityDays| UD
+    UD -->|"@AppStorage"| TV
 ```
 
 ## Components
@@ -21,45 +25,85 @@ flowchart LR
 | Component | File | Job |
 |---|---|---|
 | `SuperSimpleTodoApp` | `Super Simple Todo/SuperSimpleTodoApp.swift` | App entry point. Owns the one `TaskStore`, declares the main window and the Settings scene (⌘,). |
-| `ContentView` / `TaskRow` | `Super Simple Todo/ContentView.swift` | The list: input field, rows with a tick button, right-click Delete, footer with "N of M done", Clear Done, and a gear button that opens Settings. |
+| `ContentView` | `Super Simple Todo/ContentView.swift` | The "Tasks \| Activity" tab switcher at the top of the window. |
+| `TasksView`, `TaskRow`, `PriorityKey` | `Super Simple Todo/ContentView.swift` | The list: input field, a one-line color key, rows with a colored tick circle, a right-click menu (Priority ▸, Delete), and a footer with "N of M done", Clear Done and a Settings gear. |
+| `ActivityView`, `EventRow`, `ActivityLegend` | `Super Simple Todo/ActivityView.swift` | A stacked bar chart of actions per day (7, 14 or 30 days), a legend, a hover tooltip per day, and a timeline of every action, newest first, grouped by day. |
 | `SettingsView` | `Super Simple Todo/SettingsView.swift` | All preferences in one place. Today that's one: **Hide done tasks**. |
-| `TaskStore` | `Super Simple Todo/TaskStore.swift` | The only place tasks change. Holds the list in memory and writes it to disk after every change. |
-| `TaskItem` | `Super Simple Todo/TaskItem.swift` | One task: id, title, done flag, created date. |
+| `TaskStore` | `Super Simple Todo/TaskStore.swift` | The only place tasks change. Holds the tasks and the activity log in memory, records one event per action, sorts by priority, and writes both files after every change. |
+| `TaskItem`, `Priority` | `Super Simple Todo/TaskItem.swift` | One task (id, title, done flag, priority, created date) and the four priority levels. |
+| `ActivityEvent`, `dailyCounts` | `Super Simple Todo/ActivityEvent.swift` | One logged action (date, kind, task title, optional detail), and the per-day counts the chart draws. |
+
+## Priorities and colors
+
+| Circle color | Priority | How to set it |
+|---|---|---|
+| Red | High | End a new task with ` !!!`, or right-click ▸ Priority ▸ High |
+| Orange | Medium | ` !!` or right-click |
+| Blue | Low | ` !` or right-click |
+| Grey | None | The default; right-click ▸ Priority ▸ None |
+
+The exclamation marks must come after a space, so "Wow!" stays a plain task. The list sorts High → None, and within a level keeps the order tasks were added. The key under the input field spells out the colors, and hovering a circle names its priority. VoiceOver reads the priority too, so color is never the only cue.
+
+The Activity chart uses a separate, validated palette, one color per action: Added (blue), Completed (orange), Deleted (aqua), Unticked (yellow), Priority changed (pink). It was checked for color-blind separation in light and dark mode. Each color has its own light and dark shade. Its own legend and the text timeline carry the labels, because three of the light-mode colors are low-contrast against the background.
 
 ## Main flows
 
-- **Add:** type in "Add a task" and press Return. `TaskStore.add` flattens line breaks, trims spaces, ignores blanks, appends the task, and saves.
-- **Tick / untick:** click the circle. `toggle` flips `isDone` and saves. Done tasks are struck through and greyed out.
-- **Delete one:** right-click a task and choose Delete (or press ⌫ on a selected row).
-- **Clear Done:** the footer button removes every finished task. It's disabled when nothing is done.
-- **Hide done tasks:** a Settings toggle stored in UserDefaults. It only filters the view; the data isn't touched.
-- **Launch:** `TaskStore` reads `Tasks.json`. If the file is missing or unreadable, the list starts empty.
+- **Add:** type in "Add a task" and press Return. `TaskStore.add` flattens line breaks, trims spaces, reads a trailing `!`/`!!`/`!!!` as a priority, ignores blanks, and logs **Added**.
+- **Tick / untick:** click the circle. This logs **Completed** or **Unticked**. Done tasks are struck through.
+- **Change priority:** right-click ▸ Priority. Logs **Priority** with the new level (choosing the current level logs nothing).
+- **Delete one:** right-click ▸ Delete (or ⌫ on a selected row). Logs **Deleted**.
+- **Clear Done:** removes every finished task, logging one **Deleted** per task.
+- **Activity tab:** `dailyCounts` buckets events by local calendar day for the chosen range. Hovering a bar shows that day's counts. The timeline below lists every event.
+- **Hide done tasks:** a Settings toggle. It only filters the view.
+- **Launch:** `TaskStore` reads both files. If `Activity.json` doesn't exist yet, it fills in one **Added** event per task from its saved creation date. That's the only history available from before tracking started.
 
 ## Where data lives
 
-- Tasks: `~/Library/Application Support/Super Simple Todo/Tasks.json` (pretty-printed JSON, ISO 8601 dates, written atomically).
-- Preferences: UserDefaults for `com.amalmehta.SuperSimpleTodo`, key `hideDoneTasks`.
+- Tasks: `~/Library/Application Support/Super Simple Todo/Tasks.json`
+- Activity log: `~/Library/Application Support/Super Simple Todo/Activity.json`
+- Both are pretty-printed JSON with ISO 8601 dates, written atomically.
+- Preferences: UserDefaults for `com.amalmehta.SuperSimpleTodo`: `hideDoneTasks`, `activityDays`.
+- Sample data for trying the app: launch with `--args -TasksFile /path/Tasks.json`. `Activity.json` is then read from the same folder, and your real data is never touched.
 - Nothing leaves the Mac. No network, no accounts, no sync.
 
 ## Key decisions and trade-offs
 
-- **SwiftUI with a JSON file instead of SwiftData or Core Data.** A few dozen tasks don't need a database. The file is human-readable and easy to back up. The trade-off is rewriting the whole file on every change, which is fine at this size.
-- **Save on every change.** There's no "unsaved" state to lose. The cost is one small disk write per click.
-- **Atomic writes.** A crash mid-save can't leave a half-written file.
-- **The store takes a file URL.** Tests use a temporary file and never touch real data.
-- **Hiding is a view filter, not a delete.** Turning the setting off brings everything back.
-- **XcodeGen (`project.yml`) generates the Xcode project.** The project file is reproducible and diff-friendly. It means XcodeGen must be installed to regenerate it; the generated `.xcodeproj` is committed so it opens without XcodeGen.
+- **SwiftUI with JSON files instead of SwiftData or Core Data.** The data is small, the files are readable, and backup is easy. The cost is rewriting both files on every change, which is fine at this size.
+- **An event log, separate from the tasks.** Deleted tasks still appear in history, and the chart is just a count over events. The log grows forever (see limits).
+- **Events store the task's title, not a link to the task.** History stays readable after a task is deleted. If a title were later edited, old events would keep the old title.
+- **Priority is a sort plus a color, not manual ordering.** There's nothing to drag. The trade-off is that you can't hand-order tasks within a level.
+- **Swift Charts** (macOS 14's `chartXSelection` for hover). No dependencies.
+- **Old files still load.** Tasks without a `priority` key load as None, and a missing `Activity.json` is filled in from creation dates.
+- **Save on every change, written atomically.** There's no unsaved state, and a crash can't leave a half-written file.
+- **The store takes a file URL.** Tests use temporary files, and `-TasksFile` points the app at sample data.
+- **XcodeGen (`project.yml`) generates the Xcode project.** Run `xcodegen generate` after adding a file. The generated `.xcodeproj` is committed.
 - **No feedback tab.** Left out at the owner's request (2026-10-06).
 
 ## Testing
 
-- `Tests/TaskStoreTests.swift` has 6 XCTest unit tests: adding trims and ignores blanks, adding flattens line breaks, tick/untick and the done count, delete and Clear Done, saving and reloading across launches, and a corrupt file starting empty.
-- Run: `xcodebuild -project SuperSimpleTodo.xcodeproj -scheme "Super Simple Todo" -derivedDataPath build test`
-- Manual check (done 2026-10-06 in the running app): add, tick, right-click Delete, ⌘, Settings, Hide done tasks, Clear Done, quit and relaunch.
+`Tests/TaskStoreTests.swift` has 12 XCTest unit tests:
+- Adding: trims spaces, ignores blanks, flattens line breaks, and turns a trailing `!`/`!!`/`!!!` into a priority.
+- Tick/untick and the done count; delete and Clear Done.
+- Priority sorting.
+- Saving and reloading across launches; old files without priorities; a corrupt file.
+- Every action is logged and saved; history is filled in from creation dates; daily counts group by day and drop days outside the range.
+
+Run them with:
+
+```
+xcodebuild -project SuperSimpleTodo.xcodeproj -scheme "Super Simple Todo" -derivedDataPath build test
+```
+
+Manual checks in the running app:
+- 2026-10-06: add, tick, delete, Settings, Hide done tasks, Clear Done, relaunch.
+- 2026-10-10, on sample data: color key and circle colors, priority sort, Activity tab at 7, 14 and 30 days, and a tick appearing live in the timeline.
+- Not yet checked by hand: the hover tooltip and the right-click Priority menu. Both need full screen control, which wasn't available.
 
 ## Known limits
 
-- One list only: no due dates, reordering, editing a title, or undo.
-- If `Tasks.json` is corrupt, the app starts empty, and the next change overwrites the file. There's no backup.
-- Only one copy of the app should run at a time; two copies would overwrite each other's saves.
-- The app is ad-hoc signed for local use, not notarized for distribution.
+- One list only: no due dates, manual reordering, title editing or undo.
+- The activity log is never trimmed. Thousands of events are fine; years of heavy use would make each save slower.
+- History from before 2026-10-10 contains only **Added** events.
+- If `Tasks.json` is corrupt, the app starts empty, and the next change overwrites it. There's no backup.
+- Only one copy of the app should run on the same data at a time.
+- The app is ad-hoc signed for local use, not notarized.
