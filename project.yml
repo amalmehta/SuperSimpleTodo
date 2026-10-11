@@ -17,6 +17,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.amalmehta.SuperSimpleTodo
         PRODUCT_NAME: Super Simple Todo
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Super Simple Todo
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity

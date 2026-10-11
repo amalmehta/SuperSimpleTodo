@@ -15,6 +15,7 @@
 		88E6D1856BD255E9AEA7CFFE /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DA89942E10BDA47779FAC5 /* ActivityView.swift */; };
 		BAF3342410FEB9E6AE36DD9B /* TaskItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = E269F73FC4DF3EA0914538BD /* TaskItem.swift */; };
 		C5E344FBE0E3A71D7EB9A62C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18E11A4C039F19F736A56402 /* SettingsView.swift */; };
+		D7DA1025F10AB266B64A30FC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0F548FED8B18C149003FD219 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -28,6 +29,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0F548FED8B18C149003FD219 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		18E11A4C039F19F736A56402 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		20DA89942E10BDA47779FAC5 /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityView.swift; sourceTree = "<group>"; };
 		23E2A4DB495B241B6E245BDE /* SuperSimpleTodoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuperSimpleTodoApp.swift; sourceTree = "<group>"; };
@@ -55,6 +57,7 @@
 			children = (
 				7586C6E06D71EE84F7287DCD /* ActivityEvent.swift */,
 				20DA89942E10BDA47779FAC5 /* ActivityView.swift */,
+				0F548FED8B18C149003FD219 /* Assets.xcassets */,
 				86F9FFBF8637E80591D36E53 /* ContentView.swift */,
 				18E11A4C039F19F736A56402 /* SettingsView.swift */,
 				23E2A4DB495B241B6E245BDE /* SuperSimpleTodoApp.swift */,
@@ -89,6 +92,7 @@
 			buildConfigurationList = 4AA8886706AF641AA425CC7A /* Build configuration list for PBXNativeTarget "Super Simple Todo" */;
 			buildPhases = (
 				49C7928AA075007E267AE7DA /* Sources */,
+				96CDA54A6233CA2DA5553224 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -149,6 +153,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		96CDA54A6233CA2DA5553224 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D7DA1025F10AB266B64A30FC /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		49C7928AA075007E267AE7DA /* Sources */ = {

@@ -33,6 +33,7 @@ flowchart LR
 | `SettingsView` | `Super Simple Todo/SettingsView.swift` | All preferences in one place: **Hide done tasks**, and the **Sections** list (add, rename, delete, drag to reorder). |
 | `TaskStore` | `Super Simple Todo/TaskStore.swift` | The only place tasks and sections change. Holds the tasks, sections and activity log in memory, parses `#section` and `!` markers, groups and sorts, records one event per action, and writes all three files after every change. |
 | `TaskItem`, `Priority` | `Super Simple Todo/TaskItem.swift` | One task (id, title, done flag, priority, section, created date) and the four priority levels. |
+| App icon | `Super Simple Todo/Assets.xcassets/AppIcon.appiconset`, drawn by `tools/MakeIcon.swift` | A white checklist tile with a ticked red task, then orange and blue ones, echoing the priority colors. The script draws the 1024 px master with Core Graphics; the 16–512 pt sizes are scaled from it with `sips`. |
 | `ActivityEvent`, `dailyCounts` | `Super Simple Todo/ActivityEvent.swift` | One logged action (date, kind, task title, optional detail, section at the time), and the per-day counts the chart draws. |
 
 ## Sections
@@ -91,6 +92,7 @@ The Activity chart uses a separate, validated palette, one color per action: Add
 - **Old files still load.** Tasks without a `priority` key load as None, and a missing `Activity.json` is filled in from creation dates.
 - **Save on every change, written atomically.** There's no unsaved state, and a crash can't leave a half-written file.
 - **The store takes a file URL.** Tests use temporary files, and `-TasksFile` points the app at sample data.
+- **The icon is drawn in code, not a design file.** It can be regenerated and diffed, needs no design app, and stays in step with the priority colors. The trade-off is that tweaking it means editing the script. It uses the classic rounded-square asset catalog icon rather than a macOS 26 Icon Composer (`.icon`) file, so it doesn't pick up the new glass and tinted styles.
 - **XcodeGen (`project.yml`) generates the Xcode project.** Run `xcodegen generate` after adding a file. The generated `.xcodeproj` is committed.
 - **No feedback tab.** Left out at the owner's request (2026-10-06).
 
