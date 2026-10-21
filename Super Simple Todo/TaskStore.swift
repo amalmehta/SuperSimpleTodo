@@ -1,21 +1,25 @@
 import Foundation
 
-/// Holds the tasks, sections and activity log, and saves them to JSON files after every change.
+/// Holds the tasks, tags and activity log, and saves them to JSON files after every change.
 @MainActor
 final class TaskStore: ObservableObject {
     @Published private(set) var tasks: [TaskItem] = []
     @Published private(set) var events: [ActivityEvent] = []
-    /// Section names in display order.
-    @Published private(set) var sections: [String] = []
+    /// Known tag names in display order (offered in menus and Settings).
+    @Published private(set) var tags: [String] = []
     private let fileURL: URL
     private var activityURL: URL {
         fileURL.deletingLastPathComponent().appendingPathComponent("Activity.json")
     }
-    private var sectionsURL: URL {
+    private var tagsURL: URL {
+        fileURL.deletingLastPathComponent().appendingPathComponent("Tags.json")
+    }
+    /// Written by the sections version of the app; read once to carry its names over as tags.
+    private var legacySectionsURL: URL {
         fileURL.deletingLastPathComponent().appendingPathComponent("Sections.json")
     }
 
-    static let starterSections = ["Daily", "Fitness", "Work", "Study"]
+    static let starterTags = ["Daily", "Fitness", "Work", "Study"]
 
     nonisolated static var defaultFileURL: URL {
         // For trying the app on sample data: `open "Super Simple Todo.app" --args -TasksFile /path/Tasks.json`
@@ -41,95 +45,97 @@ final class TaskStore: ObservableObject {
             .map(\.element)
     }
 
-    /// Every section in order (empty ones too, so they're always visible), each with its tasks
-    /// sorted by priority, then "Other" (nil) for unfiled tasks if there are any.
-    func grouped(_ visible: [TaskItem]) -> [(section: String?, tasks: [TaskItem])] {
-        let other = visible.filter { $0.section == nil }
-        return sections.map { name in (name, visible.filter { $0.section == name }) }
-            + (other.isEmpty ? [] : [(nil, other)])
-    }
-
-    /// Adds a task. Words like "!", "!!" or "!!!" set Low, Medium or High priority, and a "#word"
-    /// files it under that section, creating the section if it doesn't exist yet.
+    /// Adds a task. Words like "!", "!!" or "!!!" set Low, Medium or High priority, and each "#word"
+    /// adds that tag, creating it if it doesn't exist yet.
     func add(_ title: String) {
         let flat = title.components(separatedBy: .newlines).joined(separator: " ")
             .trimmingCharacters(in: .whitespaces)
         let parsed = Self.parse(flat)
         guard !parsed.title.isEmpty else { return }
-        let section = parsed.tag.map { addSection(Self.sectionName(fromTag: $0)) }
-        let task = TaskItem(title: parsed.title, priority: parsed.priority, section: section ?? nil)
+        var taskTags: [String] = []
+        for tag in parsed.tags {
+            if let name = addTag(Self.tagName(fromTag: tag)), !taskTags.contains(name) { taskTags.append(name) }
+        }
+        let task = TaskItem(title: parsed.title, priority: parsed.priority, tags: taskTags)
         tasks.append(task)
         log(.added, task)
         save()
     }
 
-    /// Splits typed text into a title, a priority ("!"/"!!"/"!!!" words) and a section tag
-    /// ("#" followed by a letter). If nothing but markers was typed, the text is kept as the title.
-    static func parse(_ text: String) -> (title: String, priority: Priority, tag: String?) {
+    /// Splits typed text into a title, a priority ("!"/"!!"/"!!!" words) and tags ("#" followed by
+    /// a letter). If nothing but markers was typed, the text is kept as the title.
+    static func parse(_ text: String) -> (title: String, priority: Priority, tags: [String]) {
         var words: [Substring] = []
         var priority = Priority.none
-        var tag: String?
+        var tags: [String] = []
         for word in text.split(separator: " ") {
             if (1...3).contains(word.count), word.allSatisfy({ $0 == "!" }) {
                 priority = Priority(rawValue: word.count)!
             } else if word.first == "#", word.dropFirst().first?.isLetter == true {
-                if tag == nil { tag = String(word.dropFirst()) }
+                tags.append(String(word.dropFirst()))
             } else {
                 words.append(word)
             }
         }
-        if words.isEmpty { return (text, .none, nil) }
-        return (words.joined(separator: " "), priority, tag)
+        if words.isEmpty { return (text, .none, []) }
+        return (words.joined(separator: " "), priority, tags)
     }
 
     /// "#deep-work" -> "Deep work".
-    static func sectionName(fromTag tag: String) -> String {
+    static func tagName(fromTag tag: String) -> String {
         let spaced = tag.replacingOccurrences(of: "-", with: " ").replacingOccurrences(of: "_", with: " ")
         return spaced.prefix(1).uppercased() + spaced.dropFirst()
     }
 
-    /// Adds a section, or finds an existing one with the same name ignoring case.
-    /// Returns the section's name as stored, or nil if the name is blank.
+    /// Adds a tag to the known list, or finds an existing one with the same name ignoring case.
+    /// Returns the tag's name as stored, or nil if the name is blank.
     @discardableResult
-    func addSection(_ name: String) -> String? {
+    func addTag(_ name: String) -> String? {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return nil }
-        if let existing = sections.first(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame }) {
+        if let existing = tags.first(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame }) {
             return existing
         }
-        sections.append(trimmed)
+        tags.append(trimmed)
         save()
         return trimmed
     }
 
-    /// Renames a section and every task in it. Refuses a blank name or one another section uses.
+    /// Renames a tag everywhere. Refuses a blank name or one another tag uses.
     @discardableResult
-    func renameSection(_ old: String, to new: String) -> Bool {
+    func renameTag(_ old: String, to new: String) -> Bool {
         let trimmed = new.trimmingCharacters(in: .whitespaces)
-        guard let i = sections.firstIndex(of: old), !trimmed.isEmpty,
-              !sections.contains(where: { $0 != old && $0.caseInsensitiveCompare(trimmed) == .orderedSame })
+        guard let i = tags.firstIndex(of: old), !trimmed.isEmpty,
+              !tags.contains(where: { $0 != old && $0.caseInsensitiveCompare(trimmed) == .orderedSame })
         else { return false }
-        sections[i] = trimmed
-        for j in tasks.indices where tasks[j].section == old { tasks[j].section = trimmed }
+        tags[i] = trimmed
+        for j in tasks.indices {
+            tasks[j].tags = tasks[j].tags.map { $0 == old ? trimmed : $0 }
+        }
         save()
         return true
     }
 
-    /// Deletes a section; its tasks move to "Other".
-    func deleteSection(_ name: String) {
-        sections.removeAll { $0 == name }
-        for j in tasks.indices where tasks[j].section == name { tasks[j].section = nil }
+    /// Deletes a tag and removes it from every task.
+    func deleteTag(_ name: String) {
+        tags.removeAll { $0 == name }
+        for j in tasks.indices { tasks[j].tags.removeAll { $0 == name } }
         save()
     }
 
-    func moveSection(from source: IndexSet, to destination: Int) {
-        sections.move(fromOffsets: source, toOffset: destination)
+    func moveTag(from source: IndexSet, to destination: Int) {
+        tags.move(fromOffsets: source, toOffset: destination)
         save()
     }
 
-    func setSection(_ section: String?, for id: UUID) {
-        guard let i = tasks.firstIndex(where: { $0.id == id }), tasks[i].section != section else { return }
-        tasks[i].section = section
+    /// Adds the tag to the task if it doesn't have it, otherwise removes it. Creates unknown tags.
+    func toggleTag(_ name: String, for id: UUID) {
+        guard let i = tasks.firstIndex(where: { $0.id == id }), let tag = addTag(name) else { return }
+        if tasks[i].tags.contains(tag) {
+            tasks[i].tags.removeAll { $0 == tag }
+        } else {
+            tasks[i].tags.append(tag)
+        }
         save()
     }
 
@@ -161,7 +167,7 @@ final class TaskStore: ObservableObject {
     }
 
     private func log(_ kind: ActivityEvent.Kind, _ task: TaskItem, detail: String? = nil) {
-        events.append(ActivityEvent(kind: kind, taskTitle: task.title, detail: detail, section: task.section))
+        events.append(ActivityEvent(kind: kind, taskTitle: task.title, detail: detail, tags: task.tags))
     }
 
     private func load() {
@@ -170,13 +176,13 @@ final class TaskStore: ObservableObject {
         if let data = try? Data(contentsOf: fileURL) {
             tasks = (try? decoder.decode([TaskItem].self, from: data)) ?? []
         }
-        if let data = try? Data(contentsOf: sectionsURL) {
-            sections = (try? decoder.decode([String].self, from: data)) ?? Self.starterSections
+        if let data = (try? Data(contentsOf: tagsURL)) ?? (try? Data(contentsOf: legacySectionsURL)) {
+            tags = (try? decoder.decode([String].self, from: data)) ?? Self.starterTags
         } else {
-            sections = Self.starterSections
+            tags = Self.starterTags
         }
-        // A task filed under a section missing from the list (e.g. a hand-edited file) still gets a header.
-        for name in tasks.compactMap(\.section) where !sections.contains(name) { sections.append(name) }
+        // A tag used on a task but missing from the list (e.g. a hand-edited file) is added to it.
+        for name in tasks.flatMap(\.tags) where !tags.contains(name) { tags.append(name) }
         if let data = try? Data(contentsOf: activityURL) {
             events = (try? decoder.decode([ActivityEvent].self, from: data)) ?? []
         } else {
@@ -195,7 +201,7 @@ final class TaskStore: ObservableObject {
             encoder.dateEncodingStrategy = .iso8601
             try encoder.encode(tasks).write(to: fileURL, options: .atomic)
             try encoder.encode(events).write(to: activityURL, options: .atomic)
-            try encoder.encode(sections).write(to: sectionsURL, options: .atomic)
+            try encoder.encode(tags).write(to: tagsURL, options: .atomic)
         } catch {
             NSLog("Super Simple Todo: could not save tasks: \(error)")
         }

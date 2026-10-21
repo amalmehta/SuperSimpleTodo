@@ -128,52 +128,71 @@ final class TaskStoreTests: XCTestCase {
         XCTAssertEqual(counts.map { "\($0.kind.rawValue)=\($0.count)" }, ["deleted=1", "added=2", "completed=1"])
     }
 
-    func testFreshStoreHasStarterSections() {
-        XCTAssertEqual(TaskStore(fileURL: fileURL).sections, ["Daily", "Fitness", "Work", "Study"])
+    func testFreshStoreHasStarterTags() {
+        XCTAssertEqual(TaskStore(fileURL: fileURL).tags, ["Daily", "Fitness", "Work", "Study"])
     }
 
-    func testHashTagFilesTaskAndCreatesSections() {
+    func testHashTagsAddTagsAndCreateNewOnes() {
         let store = TaskStore(fileURL: fileURL)
-        store.add("Run 5k #fitness !!")
-        store.add("!!! Ship report #Work")
+        store.add("Run 5k #fitness #daily !!")
+        store.add("!!! Ship report #Work #work")
         store.add("Read paper #deep-work")
         store.add("Fix C# bug #1")
         store.add("#study")
         XCTAssertEqual(store.tasks.map(\.title), ["Run 5k", "Ship report", "Read paper", "Fix C# bug #1", "#study"])
-        XCTAssertEqual(store.tasks.map(\.section), ["Fitness", "Work", "Deep work", nil, nil])
+        XCTAssertEqual(store.tasks.map(\.tags), [["Fitness", "Daily"], ["Work"], ["Deep work"], [], []])
         XCTAssertEqual(store.tasks.map(\.priority), [.medium, .high, .none, .none, .none])
-        XCTAssertEqual(store.sections, ["Daily", "Fitness", "Work", "Study", "Deep work"])
-        XCTAssertEqual(TaskStore(fileURL: fileURL).sections, store.sections)
+        XCTAssertEqual(store.tags, ["Daily", "Fitness", "Work", "Study", "Deep work"])
+        let reloaded = TaskStore(fileURL: fileURL)
+        XCTAssertEqual(reloaded.tags, store.tags)
+        XCTAssertEqual(reloaded.tasks.map(\.tags), store.tasks.map(\.tags))
     }
 
-    func testGroupedFollowsSectionOrderThenOther() {
+    func testListStaysOneListSortedByPriority() {
         let store = TaskStore(fileURL: fileURL)
-        store.add("a"); store.add("b #work"); store.add("c #daily"); store.add("d #work !!!")
-        let groups = store.grouped(store.sortedTasks)
-        XCTAssertEqual(groups.map(\.section), ["Daily", "Fitness", "Work", "Study", nil])
-        XCTAssertEqual(groups.map(\.tasks.count), [1, 0, 2, 0, 1])
-        XCTAssertEqual(groups[2].tasks.map(\.title), ["d", "b"])
-        store.delete(store.tasks[0].id)   // no unfiled tasks left: no "Other" group
-        XCTAssertEqual(store.grouped(store.sortedTasks).map(\.section), ["Daily", "Fitness", "Work", "Study"])
+        store.add("a #work"); store.add("b !!!"); store.add("c #daily !")
+        XCTAssertEqual(store.sortedTasks.map(\.title), ["b", "c", "a"])
     }
 
-    func testRenameAndDeleteSection() {
+    func testToggleRenameAndDeleteTag() {
         let store = TaskStore(fileURL: fileURL)
         store.add("Squats #fitness")
-        XCTAssertFalse(store.renameSection("Fitness", to: "work"))   // taken
-        XCTAssertTrue(store.renameSection("Fitness", to: "Gym"))
-        XCTAssertEqual(store.tasks[0].section, "Gym")
-        store.deleteSection("Gym")
-        XCTAssertNil(store.tasks[0].section)
-        XCTAssertFalse(store.sections.contains("Gym"))
+        let id = store.tasks[0].id
+        store.toggleTag("Daily", for: id)
+        store.toggleTag("gym", for: id)          // unknown: created
+        XCTAssertEqual(store.tasks[0].tags, ["Fitness", "Daily", "gym"])
+        store.toggleTag("daily", for: id)        // matches ignoring case: removed
+        XCTAssertEqual(store.tasks[0].tags, ["Fitness", "gym"])
+        XCTAssertFalse(store.renameTag("gym", to: "work"))   // taken
+        XCTAssertTrue(store.renameTag("gym", to: "Gym"))
+        XCTAssertEqual(store.tasks[0].tags, ["Fitness", "Gym"])
+        store.deleteTag("Fitness")
+        XCTAssertEqual(store.tasks[0].tags, ["Gym"])
+        XCTAssertFalse(store.tags.contains("Fitness"))
     }
 
-    func testSetSectionAndEventsCarrySection() {
+    func testEventsCarryTags() {
         let store = TaskStore(fileURL: fileURL)
         store.add("Plan week #work")
-        store.setSection("Daily", for: store.tasks[0].id)
+        store.toggleTag("Daily", for: store.tasks[0].id)
         store.toggle(store.tasks[0].id)
-        XCTAssertEqual(store.events.map(\.section), ["Work", "Daily"])
+        XCTAssertEqual(store.events.map(\.tags), [["Work"], ["Work", "Daily"]])
+    }
+
+    func testSectionsVersionFilesBecomeTags() throws {
+        let dir = fileURL.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try Data(#"[{"createdAt":"2026-10-11T07:00:00Z","id":"DD816FCA-94AB-47D5-920C-3734FE1FC1FE","isDone":false,"priority":0,"section":"Gym","title":"Squats"}]"#.utf8).write(to: fileURL)
+        try Data(#"["Daily","Gym"]"#.utf8).write(to: dir.appendingPathComponent("Sections.json"))
+        try Data(#"[{"date":"2026-10-11T07:00:00Z","id":"11111111-0000-0000-0000-000000000001","kind":"added","section":"Gym","taskTitle":"Squats"}]"#.utf8).write(to: dir.appendingPathComponent("Activity.json"))
+        let store = TaskStore(fileURL: fileURL)
+        XCTAssertEqual(store.tasks[0].tags, ["Gym"])
+        XCTAssertEqual(store.tags, ["Daily", "Gym"])
+        XCTAssertEqual(store.events[0].tags, ["Gym"])
+        store.add("x")   // saves: tasks are written with tags and no section key
+        let saved = try String(contentsOf: fileURL, encoding: .utf8)
+        XCTAssertFalse(saved.contains("section"))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("Tags.json").path))
     }
 
     func testCorruptFileStartsEmpty() throws {

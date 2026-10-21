@@ -34,17 +34,43 @@ struct ActivityEvent: Identifiable, Codable, Equatable {
     let taskTitle: String
     /// For priority changes, the new priority's name.
     let detail: String?
-    /// The task's section at the time of the action (events before sections existed have none).
-    let section: String?
+    /// The task's tags at the time of the action.
+    let tags: [String]
 
     init(id: UUID = UUID(), date: Date = Date(), kind: Kind, taskTitle: String,
-         detail: String? = nil, section: String? = nil) {
+         detail: String? = nil, tags: [String] = []) {
         self.id = id
         self.date = date
         self.kind = kind
         self.taskTitle = taskTitle
         self.detail = detail
-        self.section = section
+        self.tags = tags
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, date, kind, taskTitle, detail, tags
+        case section   // events logged while tasks had sections
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        date = try c.decode(Date.self, forKey: .date)
+        kind = try c.decode(Kind.self, forKey: .kind)
+        taskTitle = try c.decode(String.self, forKey: .taskTitle)
+        detail = try c.decodeIfPresent(String.self, forKey: .detail)
+        let section = try c.decodeIfPresent(String.self, forKey: .section)
+        tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? (section.map { [$0] } ?? [])
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(date, forKey: .date)
+        try c.encode(kind, forKey: .kind)
+        try c.encode(taskTitle, forKey: .taskTitle)
+        try c.encodeIfPresent(detail, forKey: .detail)
+        try c.encode(tags, forKey: .tags)
     }
 }
 

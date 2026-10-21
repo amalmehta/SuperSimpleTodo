@@ -1,6 +1,6 @@
 # Super Simple Todo — System Design
 
-A single-window Mac checklist with priorities and sections (Daily, Fitness, Work, Study, plus any you create). You add tasks, tick them off, and clear the finished ones. An Activity tab charts what you've done over time.
+A single-window Mac checklist: one list, sorted by priority, with optional tags on each task (Daily, Fitness, Work, Study, plus any you create). You add tasks, tick them off, and clear the finished ones. An Activity tab charts what you've done over time.
 
 ## Architecture
 
@@ -9,13 +9,13 @@ flowchart LR
     User((You)) -->|type, tick, prioritize, delete| TV[Tasks tab<br/>TasksView]
     User -->|browse history| AV[Activity tab<br/>ActivityView]
     User -->|⌘,| SV[SettingsView<br/>Settings window]
-    TV -->|add / toggle / setPriority / setSection / delete / clearDone| TS[TaskStore<br/>ObservableObject]
-    SV -->|add / rename / delete / reorder sections| TS
-    TS -->|"@Published tasks + sections (grouped)"| TV
+    TV -->|add / toggle / setPriority / toggleTag / delete / clearDone| TS[TaskStore<br/>ObservableObject]
+    SV -->|add / rename / delete / reorder tags| TS
+    TS -->|"@Published tasks (sorted) + tags"| TV
     TS -->|"@Published events"| AV
     TS -->|save after every change| TJ[(Tasks.json)]
     TS -->|save after every change| AJ[(Activity.json)]
-    TS -->|save after every change| SJ[(Sections.json)]
+    TS -->|save after every change| SJ[(Tags.json)]
     TJ & AJ & SJ -->|load on launch| TS
     SV -->|hideDoneTasks| UD[(UserDefaults)]
     AV -->|activityDays| UD
@@ -28,22 +28,22 @@ flowchart LR
 |---|---|---|
 | `SuperSimpleTodoApp` | `Super Simple Todo/SuperSimpleTodoApp.swift` | App entry point. Owns the one `TaskStore`, declares the main window and the Settings scene (⌘,). |
 | `ContentView` | `Super Simple Todo/ContentView.swift` | The "Tasks \| Activity" tab switcher at the top of the window. |
-| `TasksView`, `SectionHeader`, `TaskRow`, `PriorityKey` | `Super Simple Todo/ContentView.swift` | The list: input field, a one-line color key, collapsible section headers with an open-task count, rows with a colored tick circle, a right-click menu (Priority ▸, Section ▸, Delete), and a footer with "N of M done", Clear Done and a Settings gear. |
+| `TasksView`, `TaskRow`, `TagChips`, `PriorityKey` | `Super Simple Todo/ContentView.swift` | The list: input field, a one-line color key, one priority-sorted list of rows (colored tick circle, title, tag labels), a right-click menu (Priority ▸, Tags ▸ with checkmarks and New Tag…, Delete), and a footer with "N of M done", Clear Done and a Settings gear. |
 | `ActivityView`, `EventRow`, `ActivityLegend` | `Super Simple Todo/ActivityView.swift` | A stacked bar chart of actions per day (7, 14 or 30 days), a legend, a hover tooltip per day, and a timeline of every action, newest first, grouped by day. |
-| `SettingsView` | `Super Simple Todo/SettingsView.swift` | All preferences in one place: **Hide done tasks**, and the **Sections** list (add, rename, delete, drag to reorder). |
-| `TaskStore` | `Super Simple Todo/TaskStore.swift` | The only place tasks and sections change. Holds the tasks, sections and activity log in memory, parses `#section` and `!` markers, groups and sorts, records one event per action, and writes all three files after every change. |
-| `TaskItem`, `Priority` | `Super Simple Todo/TaskItem.swift` | One task (id, title, done flag, priority, section, created date) and the four priority levels. |
+| `SettingsView` | `Super Simple Todo/SettingsView.swift` | All preferences in one place: **Hide done tasks**, and the **Tags** list (add, rename, delete, drag to reorder). |
+| `TaskStore` | `Super Simple Todo/TaskStore.swift` | The only place tasks and tags change. Holds the tasks, known tags and activity log in memory, parses `#tag` and `!` markers, sorts, records one event per action, and writes all three files after every change. |
+| `TaskItem`, `Priority` | `Super Simple Todo/TaskItem.swift` | One task (id, title, done flag, priority, tags, created date) and the four priority levels. Reads the older one-`section` format as a single tag. |
 | App icon | `Super Simple Todo/Assets.xcassets/AppIcon.appiconset`, drawn by `tools/MakeIcon.swift` | A white checklist tile with a ticked red task, then orange and blue ones, echoing the priority colors. The script draws the 1024 px master with Core Graphics; the 16–512 pt sizes are scaled from it with `sips`. |
-| `ActivityEvent`, `dailyCounts` | `Super Simple Todo/ActivityEvent.swift` | One logged action (date, kind, task title, optional detail, section at the time), and the per-day counts the chart draws. |
+| `ActivityEvent`, `dailyCounts` | `Super Simple Todo/ActivityEvent.swift` | One logged action (date, kind, task title, optional detail, tags at the time), and the per-day counts the chart draws. |
 
-## Sections
+## Tags
 
-- **Starting sections:** Daily, Fitness, Work, Study. They're created the first time the app runs without a `Sections.json`.
-- **Filing a task while typing:** add `#name` anywhere in it, e.g. `Run 5k #fitness !!`. The tag matches an existing section ignoring case. An unknown tag creates a section on the spot: `#deep-work` becomes "Deep work". The tag must start with a letter, so "#1" and "C#" stay part of the title. If you type two tags, the first one wins.
-- **Moving a task later:** right-click ▸ Section ▸ any section, or Other.
-- **Managing sections:** Settings (⌘,) ▸ Sections lets you add, rename (tasks follow), delete (tasks move to Other) and drag to reorder.
-- **The list:** one header per section in Settings order, then **Other** for unfiled tasks. Each header shows how many open tasks it has and collapses with a click; collapsed sections are remembered. Every section always shows, even when empty; an empty one shows a hint such as "Add one with #fitness". "Other" appears only when there are unfiled tasks. Within a section, tasks sort by priority.
-- **Activity:** each timeline row shows the task's section at the time of the action as a small grey label.
+- **Starting tags:** Daily, Fitness, Work, Study, offered in the right-click menu. They're created the first time the app runs without a `Tags.json`. If a `Sections.json` from the earlier sections version exists, its names are used instead.
+- **Tagging while typing:** add one or more `#name` words anywhere, e.g. `Run 5k #fitness #daily !!`. A tag matches an existing one ignoring case. An unknown tag is created on the spot: `#deep-work` becomes "Deep work". A tag must start with a letter, so "#1" and "C#" stay part of the title.
+- **Tagging later:** right-click ▸ Tags ▸ tick or untick any tag, or choose **New Tag…** to type a new one.
+- **Managing tags:** Settings (⌘,) ▸ Tags lets you add, rename (every task updates), delete (removed from every task) and drag to reorder.
+- **The list:** one flat list sorted by priority, with no grouping. Each task shows its tags as small grey labels after the title.
+- **Activity:** each timeline row shows the task's tags at the time of the action.
 
 ## Priorities and colors
 
@@ -60,7 +60,7 @@ The Activity chart uses a separate, validated palette, one color per action: Add
 
 ## Main flows
 
-- **Add:** type in "Add a task" and press Return. `TaskStore.add` flattens line breaks, trims spaces, reads any `!`/`!!`/`!!!` word as a priority and the first `#name` as a section (creating it if needed), ignores blanks, and logs **Added**.
+- **Add:** type in "Add a task" and press Return. `TaskStore.add` flattens line breaks, trims spaces, reads any `!`/`!!`/`!!!` word as a priority and every `#name` as a tag (creating new ones), ignores blanks, and logs **Added**.
 - **Tick / untick:** click the circle. This logs **Completed** or **Unticked**. Done tasks are struck through.
 - **Change priority:** right-click ▸ Priority. Logs **Priority** with the new level (choosing the current level logs nothing).
 - **Delete one:** right-click ▸ Delete (or ⌫ on a selected row). Logs **Deleted**.
@@ -73,19 +73,19 @@ The Activity chart uses a separate, validated palette, one color per action: Add
 
 - Tasks: `~/Library/Application Support/Super Simple Todo/Tasks.json`
 - Activity log: `~/Library/Application Support/Super Simple Todo/Activity.json`
-- Sections and their order: `~/Library/Application Support/Super Simple Todo/Sections.json`
+- Known tags and their order: `~/Library/Application Support/Super Simple Todo/Tags.json` (a leftover `Sections.json` is only read if `Tags.json` is missing)
 - Both are pretty-printed JSON with ISO 8601 dates, written atomically.
-- Preferences: UserDefaults for `com.amalmehta.SuperSimpleTodo`: `hideDoneTasks`, `activityDays`, `collapsedSections`.
-- Sample data for trying the app: launch with `--args -TasksFile /path/Tasks.json`. `Activity.json` and `Sections.json` are then read from the same folder, and your real data is never touched.
+- Preferences: UserDefaults for `com.amalmehta.SuperSimpleTodo`: `hideDoneTasks`, `activityDays`.
+- Sample data for trying the app: launch with `--args -TasksFile /path/Tasks.json`. `Activity.json` and `Tags.json` are then read from the same folder, and your real data is never touched.
 - Nothing leaves the Mac. No network, no accounts, no sync.
 
 ## Key decisions and trade-offs
 
 - **SwiftUI with JSON files instead of SwiftData or Core Data.** The data is small, the files are readable, and backup is easy. The cost is rewriting both files on every change, which is fine at this size.
 - **An event log, separate from the tasks.** Deleted tasks still appear in history, and the chart is just a count over events. The log grows forever (see limits).
-- **Tasks store their section by name, not by id.** The files stay readable, and there's no lookup table. A rename has to update every task in that section, which `renameSection` does. Names are unique, ignoring case.
-- **One task, one section.** This keeps the grouped list simple: no task appears twice. Tags that put a task in several groups would need a different layout.
-- **Sections management lives in Settings,** with the other preferences. `#tag` and right-click handle everyday filing.
+- **Tags instead of sections (changed 2026-10-21).** The owner wanted one list rather than separate groups. A task can carry any number of tags, so nothing has to be filed in exactly one place. The trade-off is that you can't collapse or hide a group; filtering by tag would be the next step.
+- **Tags are stored on each task by name, not by id.** The files stay readable, and there's no lookup table. A rename has to update every task, which `renameTag` does. Names are unique, ignoring case.
+- **A separate list of known tags,** so the right-click menu can offer tags no task uses yet. Tag management lives in Settings with the other preferences.
 - **Events store the task's title, not a link to the task.** History stays readable after a task is deleted. If a title were later edited, old events would keep the old title.
 - **Priority is a sort plus a color, not manual ordering.** There's nothing to drag. The trade-off is that you can't hand-order tasks within a level.
 - **Swift Charts** (macOS 14's `chartXSelection` for hover). No dependencies.
@@ -98,13 +98,13 @@ The Activity chart uses a separate, validated palette, one color per action: Add
 
 ## Testing
 
-`Tests/TaskStoreTests.swift` has 17 XCTest unit tests:
+`Tests/TaskStoreTests.swift` has 18 XCTest unit tests:
 - Adding: trims spaces, ignores blanks, flattens line breaks, and turns a trailing `!`/`!!`/`!!!` into a priority.
 - Tick/untick and the done count; delete and Clear Done.
 - Priority sorting.
 - Saving and reloading across launches; old files without priorities; a corrupt file.
 - Every action is logged and saved; history is filled in from creation dates; daily counts group by day and drop days outside the range.
-- Sections: a fresh store gets the four starters; `#tag` filing and on-the-fly creation (case matching, `#deep-work`, "#1" and "C#" ignored, tag-only input); grouping follows section order then Other; rename refuses a taken name and updates tasks; delete moves tasks to Other; events record the section.
+- Tags: a fresh store gets the four starters; `#tag` parsing and on-the-fly creation (several per task, case matching, duplicates dropped, `#deep-work`, "#1" and "C#" ignored, tag-only input); the list stays one priority-sorted list; toggle, rename (refuses a taken name) and delete update tasks; events record tags; files from the sections version load as tags and are saved without `section`.
 
 Run them with:
 
@@ -115,13 +115,13 @@ xcodebuild -project SuperSimpleTodo.xcodeproj -scheme "Super Simple Todo" -deriv
 Manual checks in the running app:
 - 2026-10-06: add, tick, delete, Settings, Hide done tasks, Clear Done, relaunch.
 - 2026-10-10, on sample data: color key and circle colors, priority sort, Activity tab at 7, 14 and 30 days, and a tick appearing live in the timeline.
-- Not yet checked by hand: the hover tooltip and the right-click Priority menu (both need full screen control, which wasn't available), and the sections UI. Screen access was declined on 2026-10-11, so section headers, collapsing, right-click ▸ Section and the Settings Sections list have only been built and unit-tested on the store side.
+- Not yet checked by hand: the hover tooltip, the right-click Priority and Tags menus, the New Tag… prompt, and the Settings Tags list. These need screen access, which was declined.
 
 ## Known limits
 
-- No due dates, manual reordering within a section, title editing or undo.
-- A task belongs to one section at most.
-- Moving a task to another section isn't logged in Activity.
+- No due dates, manual reordering, title editing or undo.
+- No filtering by tag yet.
+- Adding or removing a tag isn't logged in Activity.
 - The activity log is never trimmed. Thousands of events are fine; years of heavy use would make each save slower.
 - History from before 2026-10-10 contains only **Added** events.
 - If `Tasks.json` is corrupt, the app starts empty, and the next change overwrites it. There's no backup.

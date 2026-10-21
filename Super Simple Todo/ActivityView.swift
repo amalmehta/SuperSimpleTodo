@@ -157,15 +157,7 @@ struct EventRow: View {
                 Text("→ \(detail)").foregroundStyle(.secondary)
             }
             Spacer(minLength: 4)
-            if let section = event.section {
-                Text(section)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 1)
-                    .background(Color.secondary.opacity(0.12), in: Capsule())
-                    .lineLimit(1)
-            }
+            TagChips(tags: event.tags)
         }
         .accessibilityElement(children: .combine)
     }

@@ -3,7 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var store: TaskStore
     @AppStorage("hideDoneTasks") private var hideDoneTasks = false
-    @State private var newSection = ""
+    @State private var newTag = ""
     @State private var renaming: String?
     @State private var renameText = ""
 
@@ -14,7 +14,7 @@ struct SettingsView: View {
             }
             Section {
                 List {
-                    ForEach(store.sections, id: \.self) { name in
+                    ForEach(store.tags, id: \.self) { name in
                         HStack {
                             if renaming == name {
                                 TextField("Name", text: $renameText)
@@ -22,35 +22,35 @@ struct SettingsView: View {
                                     .onExitCommand { renaming = nil }
                             } else {
                                 Text(name)
-                                Text("\(store.tasks.filter { $0.section == name }.count)")
+                                Text("\(store.tasks.filter { $0.tags.contains(name) }.count)")
                                     .foregroundStyle(.tertiary)
                             }
                             Spacer()
                             Button("Rename") { renaming = name; renameText = name }
                                 .buttonStyle(.borderless)
                             Button {
-                                store.deleteSection(name)
+                                store.deleteTag(name)
                             } label: {
                                 Image(systemName: "trash")
                             }
                             .buttonStyle(.borderless)
                             .accessibilityLabel("Delete \(name)")
-                            .help("Delete section; its tasks move to Other")
+                            .help("Delete tag; it's removed from every task")
                         }
                     }
-                    .onMove { store.moveSection(from: $0, to: $1) }
+                    .onMove { store.moveTag(from: $0, to: $1) }
                 }
                 .frame(height: 150)
                 HStack {
-                    TextField("New section", text: $newSection)
-                        .onSubmit(addSection)
-                    Button("Add", action: addSection)
-                        .disabled(newSection.trimmingCharacters(in: .whitespaces).isEmpty)
+                    TextField("New tag", text: $newTag)
+                        .onSubmit(addTag)
+                    Button("Add", action: addTag)
+                        .disabled(newTag.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             } header: {
-                Text("Sections")
+                Text("Tags")
             } footer: {
-                Text("Drag to reorder. Deleting a section moves its tasks to Other. You can also type #name in a new task to create one.")
+                Text("Drag to reorder. Renaming a tag updates every task; deleting removes it from them. You can also type #name in a new task, or right-click a task ▸ Tags.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -59,13 +59,13 @@ struct SettingsView: View {
         .frame(width: 380)
     }
 
-    private func addSection() {
-        store.addSection(newSection)
-        newSection = ""
+    private func addTag() {
+        store.addTag(newTag)
+        newTag = ""
     }
 
     private func commitRename() {
-        if let old = renaming { store.renameSection(old, to: renameText) }
+        if let old = renaming { store.renameTag(old, to: renameText) }
         renaming = nil
     }
 }

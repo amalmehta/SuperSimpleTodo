@@ -68,7 +68,16 @@ Asked and answered (2026-10-11, sections):
 - Starting sections: Daily, Fitness, Work, Study.
 - Activity: each timeline row shows the task's section.
 
-Decided without asking:
+Asked and answered (2026-10-21, tags replace sections):
+- "Make it just 1 singular list, with an option to add tags, not separate categories." Sections are gone; tasks carry tags.
+
+Decided without asking (2026-10-21):
+- A task can have several tags, shown as small grey labels after its title; the list stays one list sorted by priority.
+- Add tags by typing #name (every #word counts; new names create tags), or right-click ▸ Tags ▸ tick a tag / New Tag…; manage them in Settings ▸ Tags.
+- The four starter names (Daily, Fitness, Work, Study) carry over as suggested tags; any old section on a task becomes a tag.
+- Adding or removing a tag isn't an Activity event; no tag filter yet.
+
+Decided without asking (sections, superseded 2026-10-21):
 - Section rename, delete and reorder live in Settings ▸ Sections (deleting moves tasks to Other).
 - #tags must start with a letter ("#1", "C#" stay in the title); "#deep-work" becomes "Deep work"; the first tag wins; one section per task.
 - Every section always shows, with an "Add one with #name" hint when empty (changed 2026-10-11 — hiding empty sections made them look missing); collapsed sections are remembered.
@@ -86,6 +95,7 @@ Decided without asking:
 
 CHANGELOG:
 
+- 2026-10-21 — replaced sections with tags: one priority-sorted list, several #tags per task shown as labels, right-click ▸ Tags, Settings ▸ Tags; old sections load as tags; 18 unit tests
 - 2026-10-11 — sections now always show, even when empty, with an "Add one with #name" hint
 - 2026-10-11 — added the app icon (tools/MakeIcon.swift → Assets.xcassets) and rebuilt
 - 2026-10-11 — added sections: #tag filing with on-the-fly creation, collapsible grouped headers, right-click ▸ Section, Settings ▸ Sections (add/rename/delete/reorder), section shown in the Activity timeline; 17 unit tests

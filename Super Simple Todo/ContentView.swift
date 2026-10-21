@@ -13,20 +13,11 @@ struct ContentView: View {
 struct TasksView: View {
     @EnvironmentObject private var store: TaskStore
     @AppStorage("hideDoneTasks") private var hideDoneTasks = false
-    /// Collapsed section names, joined with newlines ("" stands for Other).
-    @AppStorage("collapsedSections") private var collapsedStorage = ""
     @State private var newTitle = ""
     @FocusState private var inputFocused: Bool
-
-    private var collapsed: Set<String> {
-        Set(collapsedStorage.split(separator: "\n", omittingEmptySubsequences: false).map(String.init))
-    }
-
-    private func toggleCollapsed(_ key: String) {
-        var set = collapsed
-        if set.contains(key) { set.remove(key) } else { set.insert(key) }
-        collapsedStorage = set.sorted().joined(separator: "\n")
-    }
+    /// The task the "New Tag…" prompt is adding a tag to.
+    @State private var tagTarget: TaskItem?
+    @State private var newTagName = ""
 
     private var visibleTasks: [TaskItem] {
         hideDoneTasks ? store.sortedTasks.filter { !$0.isDone } : store.sortedTasks
@@ -34,10 +25,10 @@ struct TasksView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TextField("Add a task", text: $newTitle)
+            TextField("Add a task  (#tag, ! priority)", text: $newTitle)
                 .textFieldStyle(.roundedBorder)
                 .focused($inputFocused)
-                .help("Add #section to file it (a new #name makes a new section), and !, !! or !!! for Low, Medium or High priority")
+                .help("Add #tag to tag it (a new #name makes a new tag), and !, !! or !!! for Low, Medium or High priority")
                 .onSubmit {
                     store.add(newTitle)
                     newTitle = ""
@@ -48,36 +39,19 @@ struct TasksView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
 
-            if visibleTasks.isEmpty && store.sections.isEmpty {
+            if visibleTasks.isEmpty {
                 Spacer()
                 Text(store.tasks.isEmpty ? "No tasks yet" : "All done")
                     .foregroundStyle(.secondary)
                 Spacer()
             } else {
                 List {
-                    ForEach(store.grouped(visibleTasks), id: \.section) { group in
-                        let key = group.section ?? ""
-                        let isCollapsed = collapsed.contains(key)
-                        Section {
-                            if !isCollapsed {
-                                ForEach(group.tasks) { task in
-                                    TaskRow(task: task) { store.toggle(task.id) }
-                                        .contextMenu { menu(for: task) }
-                                }
-                                .onDelete { offsets in
-                                    offsets.map { group.tasks[$0].id }.forEach(store.delete)
-                                }
-                                if group.tasks.isEmpty, let name = group.section {
-                                    Text("Add one with #\(name.lowercased().replacingOccurrences(of: " ", with: "-"))")
-                                        .font(.callout)
-                                        .foregroundStyle(.tertiary)
-                                }
-                            }
-                        } header: {
-                            SectionHeader(name: group.section ?? "Other",
-                                          openCount: group.tasks.filter { !$0.isDone }.count,
-                                          isCollapsed: isCollapsed) { toggleCollapsed(key) }
-                        }
+                    ForEach(visibleTasks) { task in
+                        TaskRow(task: task) { store.toggle(task.id) }
+                            .contextMenu { menu(for: task) }
+                    }
+                    .onDelete { offsets in
+                        offsets.map { visibleTasks[$0].id }.forEach(store.delete)
                     }
                 }
             }
@@ -100,6 +74,16 @@ struct TasksView: View {
             .padding(.vertical, 8)
         }
         .onAppear { inputFocused = true }
+        .alert("New Tag", isPresented: Binding(get: { tagTarget != nil }, set: { if !$0 { tagTarget = nil } })) {
+            TextField("Name", text: $newTagName)
+            Button("Add") {
+                if let task = tagTarget { store.toggleTag(newTagName, for: task.id) }
+                newTagName = ""
+            }
+            Button("Cancel", role: .cancel) { newTagName = "" }
+        } message: {
+            Text("Adds a tag to \u{201C}\(tagTarget?.title ?? "")\u{201D}.")
+        }
     }
 
     @ViewBuilder
@@ -112,43 +96,39 @@ struct TasksView: View {
                 Text(p.name).tag(p)
             }
         }
-        Picker("Section", selection: Binding(
-            get: { task.section },
-            set: { store.setSection($0, for: task.id) }
-        )) {
-            ForEach(store.sections, id: \.self) { name in
-                Text(name).tag(Optional(name))
+        Menu("Tags") {
+            ForEach(store.tags, id: \.self) { name in
+                Toggle(name, isOn: Binding(
+                    get: { task.tags.contains(name) },
+                    set: { _ in store.toggleTag(name, for: task.id) }
+                ))
             }
             Divider()
-            Text("Other").tag(String?.none)
+            Button("New Tag…") { tagTarget = task }
         }
         Divider()
         Button("Delete", role: .destructive) { store.delete(task.id) }
     }
 }
 
-struct SectionHeader: View {
-    let name: String
-    let openCount: Int
-    let isCollapsed: Bool
-    let onToggle: () -> Void
+/// A task's tags as small grey labels.
+struct TagChips: View {
+    let tags: [String]
 
     var body: some View {
-        Button(action: onToggle) {
-            HStack(spacing: 4) {
-                Image(systemName: "chevron.right")
-                    .rotationEffect(.degrees(isCollapsed ? 0 : 90))
-                    .font(.caption2.bold())
-                    .frame(width: 10)
-                Text(name)
-                Text("\(openCount)").foregroundStyle(.tertiary)
-                Spacer()
+        HStack(spacing: 4) {
+            ForEach(tags, id: \.self) { tag in
+                Text(tag)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1)
+                    .background(Color.secondary.opacity(0.12), in: Capsule())
+                    .lineLimit(1)
             }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(name), \(openCount) open")
-        .accessibilityHint(isCollapsed ? "Expands the section" : "Collapses the section")
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Tags: \(tags.joined(separator: ", "))")
     }
 }
 
@@ -171,6 +151,10 @@ struct TaskRow: View {
             Text(task.title)
                 .strikethrough(task.isDone)
                 .foregroundStyle(task.isDone ? .secondary : .primary)
+            if !task.tags.isEmpty {
+                Spacer(minLength: 8)
+                TagChips(tags: task.tags)
+            }
         }
         .padding(.vertical, 2)
     }
