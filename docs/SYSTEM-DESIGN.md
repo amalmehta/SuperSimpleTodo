@@ -64,6 +64,12 @@ flowchart LR
 - **Calendar:** dots per day, and the selected day's due and finished tasks.
 - **Not logged in Activity:** setting or clearing a deadline isn't one of the five recorded actions, so the chart's colors stay the same.
 
+## Next steps
+
+- **A task's link:** a task can carry one web address. It comes from typing or pasting `https://…` or `www.…` into a task (the first address is taken out of the title), or from right-click ▸ Add Link… / Edit Link… (where a bare `site.com/page` also works). It shows under the title as "↗ Open site.com" and is saved as the `link` field.
+- **Ask Claude:** tasks without a link, while open, show "✦ Ask Claude how to start" under the title once the pointer has rested on them for about half a second, or while they're selected. The delay stops rows flickering as the pointer sweeps past. The link is `https://claude.ai/new?q=…` with a short prompt: the task's title, its deadline if any, and a request for the first concrete step. It opens in your browser, or the Claude app if that handles claude.ai links. Nothing leaves the Mac until it's clicked, and the message isn't sent until you press send there.
+- **Kept simple on purpose:** no API key, no network calls from the app, no AI-written suggestions stored in the list.
+
 ## Look and feel
 
 - **Warm and soft:** a faint warm background (warm near-black in dark mode), white rounded cards with a hairline border, and a rounded add field with a plus icon. Selected cards take a light accent tint.
@@ -116,6 +122,7 @@ The Activity chart uses a separate, validated palette, one color per action: Add
 - **Tags are stored on each task by name, not by id.** The files stay readable, and there's no lookup table. A rename has to update every task, which `renameTag` does. Names are unique, ignoring case.
 - **A separate list of known tags,** so the right-click menu can offer tags no task uses yet. Tag management lives in Settings with the other preferences.
 - **Events store the task's title, not a link to the task.** History stays readable after a task is deleted. Renaming a task doesn't rewrite old events; they keep the title it had at the time.
+- **Next steps are a link, not generated text.** A prefilled claude.ai chat gives guidance without an API key, costs or background network use. The trade-off is that the app can't judge which tasks most need a nudge, so Ask Claude appears on hover or selection rather than always.
 - **Deadlines are days, saved as "yyyy-MM-dd".** Storing a date-time would shift a deadline to another day if you changed time zones. A plain date can't. Times weren't needed.
 - **Deadlines don't reorder the list.** The list stays priority-first so tasks don't jump around as days pass; the label and the red "Overdue" do the signalling.
 - **Undo by snapshots.** Before each change the store copies its three arrays; undo swaps them back and registers the reverse for redo. One generic mechanism covers every action, with no per-action undo code. Copying is cheap at this size. Undo lives in the main window's `UndoManager`, so ⌘Z in the Settings window doesn't undo tag changes; ⌘Z in the main window does.
@@ -132,7 +139,7 @@ The Activity chart uses a separate, validated palette, one color per action: Add
 
 ## Testing
 
-`Tests/TaskStoreTests.swift` has 31 XCTest unit tests:
+`Tests/TaskStoreTests.swift` has 34 XCTest unit tests:
 - Adding: trims spaces, ignores blanks, flattens line breaks, and turns a trailing `!`/`!!`/`!!!` into a priority.
 - Tick/untick and the done count; delete and Clear Done.
 - Priority sorting, done tasks sinking below open ones, filtering by tag and hiding done tasks.
@@ -141,6 +148,7 @@ The Activity chart uses a separate, validated palette, one color per action: Add
 - History: editing an entry (title, action, date, tags), deleting entries, and clearing the log, all without touching tasks; today and this-week completion counts.
 - Saving and reloading across launches; old files without priorities; a corrupt file is kept as an `.unreadable-` backup instead of being overwritten.
 - Deadlines: `parseDay` (today, tomorrow, weekdays including today, month and day in both orders, m/d, ISO, rolling to next year, and rejecting "sunny", "feb30" and plain numbers) against a fixed Wednesday; `@day` in typed text alongside `#` and `!` while email addresses stay; setting, clearing, undoing and renaming with `@day`; saving as a plain date with no key when unset; the calendar's per-day due and finished lists; and the label text.
+- Next steps: links pulled from typed text (`https://`, `www.`, trailing punctuation) while email addresses and bare domains stay in the title; Add, Edit and Remove Link with undo, saving, and rejecting non-addresses; links set by rename; the "Open site" label; and the Ask Claude URL (claude.ai/new with a `q` prompt that keeps `&` and includes the deadline).
 - Every action is logged and saved; history is filled in from creation dates; daily counts group by day and drop days outside the range.
 - Tags: a fresh store gets the four starters; `#tag` parsing and on-the-fly creation (several per task, case matching, duplicates dropped, `#deep-work`, "#1" and "C#" ignored, tag-only input); the list stays one priority-sorted list; toggle, rename (refuses a taken name) and delete update tasks; events record tags; files from the sections version load as tags and are saved without `section`.
 
@@ -156,7 +164,8 @@ Manual checks in the running app:
 - 2026-10-21, screenshots of a test copy on sample data: the tag labels, priority colors and sorting on the Tasks tab, and the Activity chart and timeline with tags.
 - 2026-10-21, `tools/screenshots.sh` on sample data: done tasks at the bottom, the "Completed today · this week" line, and plain day headers in the timeline.
 - 2026-10-21, `tools/screenshots.sh`: the new look (greeting, ring, cards), deadline labels including a red Overdue, and the Calendar tab's dots, today marker and day list.
-- Not yet checked by hand: the tick animation and the "All done" celebration, the deadline picker sheet, month switching and swiping, keyboard selection (⌫, Space, Return), renaming in place, tag filtering, the right-click menus, the history editor, Clear History, undo in the app, and the hover tooltip. These need clicking, and screen access was declined. Their store-side logic is covered by the tests above.
+- 2026-10-21, `tools/screenshots.sh`: "↗ Open site" next-step links under tasks.
+- Not yet checked by hand: Ask Claude appearing on hover or selection and opening claude.ai, the Add Link prompt, the tick animation and the "All done" celebration, the deadline picker sheet, month switching and swiping, keyboard selection (⌫, Space, Return), renaming in place, tag filtering, the right-click menus, the history editor, Clear History, undo in the app, and the hover tooltip. These need clicking, and screen access was declined. Their store-side logic is covered by the tests above.
 
 ## Known limits
 

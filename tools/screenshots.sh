@@ -34,6 +34,8 @@ for i, (t, p, done, tags, days) in enumerate(rows):
     task = {"id": str(uuid.uuid4()).upper(), "title": t, "priority": p, "isDone": done, "tags": tags,
             "createdAt": iso(now - dt.timedelta(hours=i))}
     if days is not None: task["deadline"] = due(days)
+    links = {"Book flights": "https://www.google.com/travel/flights", "Review chapter 4 notes": "https://developer.apple.com/documentation/swiftui"}
+    if t in links: task["link"] = links[t]
     tasks.append(task)
 json.dump(tasks, open(f"{d}/Tasks.json", "w"), indent=1)
 json.dump(["Daily", "Fitness", "Work", "Study"], open(f"{d}/Tags.json", "w"))
@@ -61,10 +63,9 @@ if let w = windows.first(where: { ($0[kCGWindowOwnerPID as String] as? Int32) ==
 SWIFT
 
 shoot() {  # $1 = tab, $2 = output file
-  open -n "$WORK/Demo.app" --args -TasksFile "$WORK/data/Tasks.json" -StartTab "$1" -activityDays 14
-  sleep 3
-  osascript -e 'tell application id "com.amalmehta.SuperSimpleTodo.demo" to activate' 2>/dev/null || true
-  sleep 1
+  # -g keeps it in the background, so it never takes your keyboard focus while you work.
+  open -g -n "$WORK/Demo.app" --args -TasksFile "$WORK/data/Tasks.json" -StartTab "$1" -activityDays 14
+  sleep 4
   local pid=$(pgrep -f "$WORK/Demo.app/Contents/MacOS" | tail -1)
   local win=$(swift "$WORK/winid.swift" "$pid")
   screencapture -x -o -l "$win" "$2"

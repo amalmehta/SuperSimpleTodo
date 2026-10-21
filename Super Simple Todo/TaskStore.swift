@@ -67,7 +67,7 @@ final class TaskStore: ObservableObject {
         change("Add Task") {
             let task = TaskItem(title: parsed.title, priority: parsed.priority,
                                 tags: parsed.tags.compactMap { ensureTag(Self.tagName(fromTag: $0)) }.uniqued(),
-                                deadline: parsed.deadline)
+                                deadline: parsed.deadline, link: parsed.link)
             tasks.append(task)
             log(.added, task)
         }
@@ -81,10 +81,13 @@ final class TaskStore: ObservableObject {
         let newTags = parsed.tags.map { Self.tagName(fromTag: $0) }
         let samePriority = parsed.priority == .none || parsed.priority == tasks[i].priority
         let sameDeadline = parsed.deadline == nil || parsed.deadline == tasks[i].deadline
-        guard parsed.title != tasks[i].title || !newTags.isEmpty || !samePriority || !sameDeadline else { return }
+        let sameLink = parsed.link == nil || parsed.link == tasks[i].link
+        guard parsed.title != tasks[i].title || !newTags.isEmpty || !samePriority || !sameDeadline || !sameLink
+        else { return }
         change("Edit Task") {
             tasks[i].title = parsed.title
             if let deadline = parsed.deadline { tasks[i].deadline = deadline }
+            if let link = parsed.link { tasks[i].link = link }
             for name in newTags.compactMap(ensureTag) where !tasks[i].tags.contains(name) {
                 tasks[i].tags.append(name)
             }
@@ -101,6 +104,20 @@ final class TaskStore: ObservableObject {
         let day = date.map { calendar.startOfDay(for: $0) }
         guard tasks[i].deadline != day else { return }
         change(day == nil ? "Remove Deadline" : "Set Deadline") { tasks[i].deadline = day }
+    }
+
+    /// Sets or removes a task's link. Returns false (and changes nothing) if the text isn't a web address.
+    @discardableResult
+    func setLink(_ text: String?, for id: UUID) -> Bool {
+        guard let i = tasks.firstIndex(where: { $0.id == id }) else { return false }
+        var url: URL?
+        if let text, !text.trimmingCharacters(in: .whitespaces).isEmpty {
+            guard let parsed = Self.webAddress(text, requireMarker: false) else { return false }
+            url = parsed
+        }
+        guard tasks[i].link != url else { return true }
+        change(url == nil ? "Remove Link" : "Set Link") { tasks[i].link = url }
+        return true
     }
 
     /// Tasks due on the given day, open ones first, then by priority.
@@ -251,12 +268,17 @@ final class TaskStore: ObservableObject {
     /// and a deadline ("@" followed by a day `parseDay` understands). Anything else, including an "@"
     /// word that isn't a day, stays in the title. If nothing but markers was typed, the text is the title.
     static func parse(_ text: String, now: Date = Date(), calendar: Calendar = .current)
-        -> (title: String, priority: Priority, tags: [String], deadline: Date?) {
+        -> (title: String, priority: Priority, tags: [String], deadline: Date?, link: URL?) {
         var words: [Substring] = []
         var priority = Priority.none
         var tags: [String] = []
         var deadline: Date?
+        var link: URL?
         for word in text.split(separator: " ") {
+            if link == nil, let url = webAddress(String(word), requireMarker: true) {
+                link = url
+                continue
+            }
             if (1...3).contains(word.count), word.allSatisfy({ $0 == "!" }) {
                 priority = Priority(rawValue: word.count)!
             } else if word.first == "#", word.dropFirst().first?.isLetter == true {
@@ -267,8 +289,24 @@ final class TaskStore: ObservableObject {
                 words.append(word)
             }
         }
-        if words.isEmpty { return (text, .none, [], nil) }
-        return (words.joined(separator: " "), priority, tags, deadline)
+        if words.isEmpty { return (text, .none, [], nil, nil) }
+        return (words.joined(separator: " "), priority, tags, deadline, link)
+    }
+
+    /// A web address from text: "https://…", "http://…" or "www.…" (and, when `requireMarker` is false,
+    /// a bare "example.com/page"). Returns nil for anything else, including email addresses.
+    static func webAddress(_ raw: String, requireMarker: Bool) -> URL? {
+        var text = raw.trimmingCharacters(in: .whitespaces)
+        while let last = text.last, ".,;:!?)\"'".contains(last) { text.removeLast() }
+        let lower = text.lowercased()
+        let hasScheme = lower.hasPrefix("http://") || lower.hasPrefix("https://")
+        if !hasScheme {
+            guard lower.hasPrefix("www.") || !requireMarker, !text.contains("@") else { return nil }
+            text = "https://" + text
+        }
+        guard let url = URL(string: text), let host = url.host(), host.contains("."),
+              !host.hasPrefix("."), !host.hasSuffix(".") else { return nil }
+        return url
     }
 
     /// Understands "today", "tomorrow"/"tmrw", weekday names ("fri", "friday": the next one, today

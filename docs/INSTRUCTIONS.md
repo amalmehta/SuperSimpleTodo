@@ -29,7 +29,7 @@ xcodebuild -project SuperSimpleTodo.xcodeproj -scheme "Super Simple Todo" -deriv
 open "build/Build/Products/Debug/Super Simple Todo.app"
 ```
 
-Run the tests (31 unit tests):
+Run the tests (34 unit tests):
 
 ```bash
 xcodebuild -project SuperSimpleTodo.xcodeproj -scheme "Super Simple Todo" -derivedDataPath build test
@@ -51,6 +51,8 @@ xcodegen generate
 | `#name` | Adds a tag. A new name creates the tag, e.g. `#deep-work` → "Deep work". Use as many as you like. |
 | `@day` | Sets a deadline: `@today`, `@tomorrow`, `@fri` (the next Friday, today included), `@oct30`, `@30oct`, `@10/30` or `@2026-10-30`. A date that has already passed this year means next year. Other `@` words, like an email address, stay in the title. |
 
+| A link | `https://…` or `www.…` anywhere becomes the task's next step, shown under its title. |
+
 Example: `Finish report #work !!! @fri`
 
 **Work with tasks:**
@@ -62,6 +64,11 @@ Example: `Finish report #work !!! @fri`
   - ↑↓ move the selection
 - Double-click a task to rename it. Typing `#tag` or `!!` while renaming adds a tag or sets the priority.
 - Right-click a task for **Rename**, **Priority ▸**, **Deadline ▸** (Today, Tomorrow, In a Week, Pick a Date…, Remove Deadline), **Tags ▸** (tick or untick a tag, or **New Tag…**) and **Delete**.
+- **Next steps:**
+  - A task with a link shows **↗ Open <site>** under its title. Click it to open the page.
+  - Add, change or remove a link with right-click ▸ **Add Link…** / **Edit Link…** / **Remove Link**. There, a bare `site.com/page` works too.
+  - Tasks without a link show **✦ Ask Claude how to start** when you rest the pointer on them or select them. It opens a new chat at claude.ai with the task, and its deadline if it has one, already typed in. Nothing is sent until you click; you press send in Claude yourself.
+  - Right-click ▸ **Ask Claude How to Start** does the same for any task.
 - A task with a deadline shows "Today", "Tomorrow", a weekday within the next week, or a date. Past deadlines on open tasks show a red "Overdue". Deadlines don't change the order. With several selected: **Tick or Untick** and **Delete**.
 - Click a tag label to show only tasks with that tag. Click × in the "Showing" bar to show everything again.
 - **Clear Done** (or ⇧⌘⌫) removes every finished task.

@@ -71,6 +71,15 @@ Asked and answered (2026-10-11, sections):
 Asked and answered (2026-10-21, tags replace sections):
 - "Make it just 1 singular list, with an option to add tags, not separate categories." Sections are gone; tasks carry tags.
 
+Asked and answered (2026-10-21, next steps):
+- "For relevant tasks provide a next step underneath, like the link to the thing or a link to a Claude session; don't overcomplicate it." Source: your own links plus an "Ask Claude" link (no API). Visibility: a task's link always shows; Ask Claude appears on hover or selection.
+
+Decided without asking (2026-10-21, next steps):
+- Ask Claude opens https://claude.ai/new?q=<prompt> with the task title, deadline and a request for the first concrete step; nothing is sent until clicked.
+- Links typed into a task need https:// or www. (so emails and plain words like "example.com" stay in the title); Add Link… also accepts a bare domain.
+- A short hover delay (~0.45 s) before Ask Claude shows, so rows don't flicker.
+- tools/screenshots.sh now launches the test copy in the background (open -g): bringing it to the front once captured the owner's keystrokes.
+
 Asked and answered (2026-10-21, friendlier look, deadlines and calendar):
 - Look: "warm & soft", with a greeting and progress ring, friendly empty states, a gentle tick animation (plus a small all-done celebration), and softer card rows.
 - Deadlines: date only, set by typing @day (@fri, @tomorrow, @oct30…) or right-click ▸ Deadline; shown as a small label (red "Overdue"), without changing the sort.
@@ -119,6 +128,7 @@ Decided without asking (sections, superseded 2026-10-21):
 
 CHANGELOG:
 
+- 2026-10-21 — next steps: task links ("↗ Open site") and "✦ Ask Claude how to start" (claude.ai prefilled) under tasks; right-click Add/Edit/Remove Link; screenshot script no longer takes focus; 34 unit tests
 - 2026-10-21 — friendlier look (warm background, greeting + progress ring, card rows, empty states, tick animation, all-done celebration); deadlines (@day, right-click ▸ Deadline, Overdue label); Calendar tab; 31 unit tests
 - 2026-10-21 — added selection and keys (⌫, Space, Return), rename, tag filter, undo/redo, menu shortcuts, done tasks at the bottom, completed today/this week, editable and clearable history, unreadable-file backup, tools/install.sh and tools/screenshots.sh; fixed day headers hiding timeline rows; 25 unit tests
 - 2026-10-21 — pushed to a private GitHub repo (SuperSimpleTodo) with README, screenshots, docs/INSTRUCTIONS.md and docs/FILE-STRUCTURE.md; added a -StartTab launch option for screenshots

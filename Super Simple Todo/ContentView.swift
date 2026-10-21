@@ -43,6 +43,10 @@ struct TasksView: View {
     @State private var newTagName = ""
     /// The task the "Pick a Date…" sheet is setting a deadline for.
     @State private var deadlineTarget: TaskItem?
+    /// The task the "Add Link…" prompt is for, and the typed address.
+    @State private var linkTarget: TaskItem?
+    @State private var linkText = ""
+    @Environment(\.openURL) private var openURL
 
     private var visibleTasks: [TaskItem] {
         store.visibleTasks(hideDone: hideDoneTasks, tag: tagFilter)
@@ -140,6 +144,17 @@ struct TasksView: View {
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.4)) { celebrating = false }
             }
         }
+        .alert(linkTarget?.link == nil ? "Add Link" : "Edit Link",
+               isPresented: Binding(get: { linkTarget != nil }, set: { if !$0 { linkTarget = nil } })) {
+            TextField("https://…", text: $linkText)
+            Button("Save") {
+                if let task = linkTarget, !store.setLink(linkText, for: task.id) { NSSound.beep() }
+                linkText = ""
+            }
+            Button("Cancel", role: .cancel) { linkText = "" }
+        } message: {
+            Text("A page that helps with \u{201C}\(linkTarget?.title ?? "")\u{201D}. It shows under the task as its next step.")
+        }
         .sheet(item: $deadlineTarget) { task in
             DeadlinePicker(task: task) { store.setDeadline($0, for: task.id) }
         }
@@ -181,6 +196,7 @@ struct TasksView: View {
         List(selection: $selection) {
             ForEach(visibleTasks) { task in
                 TaskRow(task: task,
+                        isSelected: selection.contains(task.id),
                         onToggle: { toggle([task.id]) },
                         onTagTap: { tag in tagFilter = (tagFilter == tag ? nil : tag) },
                         editor: editingID == task.id ? AnyView(editor) : nil)
@@ -246,6 +262,15 @@ struct TasksView: View {
     @ViewBuilder
     private func menu(for task: TaskItem) -> some View {
         Button("Rename") { beginEdit(task.id) }
+        Button(task.link == nil ? "Add Link…" : "Edit Link…") {
+            linkText = task.link?.absoluteString ?? ""
+            linkTarget = task
+        }
+        if task.link != nil {
+            Button("Remove Link") { store.setLink(nil, for: task.id) }
+        }
+        Button("Ask Claude How to Start") { openURL(NextStep.claudeURL(for: task)) }
+        Divider()
         Picker("Priority", selection: Binding(
             get: { task.priority },
             set: { store.setPriority($0, for: task.id) }
@@ -314,13 +339,21 @@ struct TagChips: View {
 
 struct TaskRow: View {
     let task: TaskItem
+    var isSelected = false
     let onToggle: () -> Void
     var onTagTap: ((String) -> Void)?
     /// Shown instead of the title while renaming.
     var editor: AnyView?
+    /// True once the pointer has rested on the row briefly (so sweeping past doesn't flicker).
+    @State private var hoverSettled = false
+    @State private var hoverTask: Task<Void, Never>?
+
+    private var showsClaude: Bool {
+        !task.isDone && task.link == nil && editor == nil && (isSelected || hoverSettled)
+    }
 
     var body: some View {
-        HStack {
+        HStack(alignment: .firstTextBaseline) {
             Button(action: onToggle) {
                 Image(systemName: task.isDone ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(circleColor)
@@ -333,10 +366,26 @@ struct TaskRow: View {
             .accessibilityValue(task.priority == .none ? "" : "\(task.priority.name) priority")
             .help(task.priority == .none ? "No priority" : "\(task.priority.name) priority")
 
-            if let editor {
-                editor
-            } else {
-                title
+            VStack(alignment: .leading, spacing: 3) {
+                if let editor {
+                    editor
+                } else {
+                    title
+                }
+                if let link = task.link {
+                    Link(destination: link) {
+                        Label(NextStep.linkLabel(link), systemImage: "arrow.up.right")
+                    }
+                    .help(link.absoluteString)
+                    .nextStepStyle()
+                } else if showsClaude {
+                    Link(destination: NextStep.claudeURL(for: task)) {
+                        Label("Ask Claude how to start", systemImage: "sparkle")
+                    }
+                    .help("Opens a new Claude chat about this task")
+                    .nextStepStyle()
+                    .transition(.opacity)
+                }
             }
             if task.deadline != nil || !task.tags.isEmpty {
                 Spacer(minLength: 8)
@@ -350,6 +399,18 @@ struct TaskRow: View {
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 4)
+        .animation(.easeOut(duration: 0.2), value: showsClaude)
+        .onHover { inside in
+            hoverTask?.cancel()
+            if inside {
+                hoverTask = Task {
+                    try? await Task.sleep(for: .milliseconds(450))
+                    if !Task.isCancelled { hoverSettled = true }
+                }
+            } else {
+                hoverSettled = false
+            }
+        }
     }
 
     private var title: some View {
@@ -476,7 +537,7 @@ struct AddTaskField: View {
             Image(systemName: "plus.circle.fill")
                 .foregroundStyle(Color.accentColor)
                 .imageScale(.large)
-            TextField("Add a task  (#tag  !priority  @day)", text: $text)
+            TextField("Add a task  (#tag  !priority  @day  link)", text: $text)
                 .textFieldStyle(.plain)
                 .focused(focused)
                 .onSubmit(onSubmit)
@@ -486,7 +547,7 @@ struct AddTaskField: View {
         .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
         .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius)
             .stroke(focused.wrappedValue ? Color.accentColor.opacity(0.6) : Theme.cardStroke))
-        .help("Add #tag to tag it (a new #name makes a new tag), !, !! or !!! for Low, Medium or High priority, and @today, @fri or @oct30 for a deadline")
+        .help("Add #tag to tag it (a new #name makes a new tag), !, !! or !!! for Low, Medium or High priority, @today, @fri or @oct30 for a deadline, and paste a link to make it the next step")
     }
 }
 
@@ -584,5 +645,43 @@ struct DeadlinePicker: View {
         }
         .padding(20)
         .frame(width: 320)
+    }
+}
+
+/// A task's next step: its own link, or a new Claude chat about it.
+enum NextStep {
+    /// "Open toyotafinancial.com"
+    static func linkLabel(_ url: URL) -> String {
+        var host = url.host() ?? url.absoluteString
+        if host.hasPrefix("www.") { host.removeFirst(4) }
+        return "Open \(host)"
+    }
+
+    /// A claude.ai link that starts a new chat asking for help with the task. Nothing is sent until
+    /// it's clicked.
+    static func claudeURL(for task: TaskItem) -> URL {
+        var prompt = "I want to get this done: \u{201C}\(task.title)\u{201D}."
+        if let deadline = task.deadline {
+            prompt += " It's due \(deadline.formatted(date: .long, time: .omitted))."
+        }
+        prompt += " What's the first concrete step, and can you guide me through it?"
+        var parts = URLComponents(string: "https://claude.ai/new")!
+        parts.queryItems = [URLQueryItem(name: "q", value: prompt)]
+        return parts.url!
+    }
+}
+
+private extension View {
+    func nextStepStyle() -> some View {
+        font(.caption)
+            .labelStyle(NextStepLabelStyle())
+            .foregroundStyle(Color.accentColor)
+            .buttonStyle(.plain)
+    }
+}
+
+private struct NextStepLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 3) { configuration.icon.imageScale(.small); configuration.title }
     }
 }

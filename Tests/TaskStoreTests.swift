@@ -411,4 +411,57 @@ final class TaskStoreTests: XCTestCase {
         XCTAssertEqual(DeadlineLabel.text(for: day(9), now: now, calendar: cal),
                        day(9).formatted(.dateTime.month(.abbreviated).day()))
     }
+
+    // MARK: Next steps
+
+    func testLinksInTypedTextBecomeTheNextStep() {
+        let (now, cal) = wednesday
+        let a = TaskStore.parse("Pay toyota https://www.toyotafinancial.com/us/en.html, @fri !!", now: now, calendar: cal)
+        XCTAssertEqual(a.title, "Pay toyota")
+        XCTAssertEqual(a.link?.absoluteString, "https://www.toyotafinancial.com/us/en.html")
+        XCTAssertEqual(ymd(a.deadline, cal), "2026-10-23")
+        let b = TaskStore.parse("Read www.example.com/guide.", now: now, calendar: cal)
+        XCTAssertEqual(b.title, "Read")
+        XCTAssertEqual(b.link?.absoluteString, "https://www.example.com/guide")
+        let c = TaskStore.parse("Email sam@example.com about example.com", now: now, calendar: cal)
+        XCTAssertEqual(c.title, "Email sam@example.com about example.com")   // needs http(s):// or www.
+        XCTAssertNil(c.link)
+    }
+
+    func testSetLinkAcceptsAddressesAndUndoes() {
+        let store = TaskStore(fileURL: fileURL)
+        let undo = UndoManager()
+        undo.groupsByEvent = false
+        store.undoManager = undo
+        func step(_ action: () -> Void) { undo.beginUndoGrouping(); action(); undo.endUndoGrouping() }
+
+        step { store.add("Buy keyboard") }
+        let id = store.tasks[0].id
+        XCTAssertFalse(store.setLink("not a link", for: id))
+        XCTAssertNil(store.tasks[0].link)
+        step { XCTAssertTrue(store.setLink("keychron.com/products", for: id)) }   // bare domain is fine here
+        XCTAssertEqual(store.tasks[0].link?.absoluteString, "https://keychron.com/products")
+        XCTAssertEqual(TaskStore(fileURL: fileURL).tasks[0].link, store.tasks[0].link)   // saved
+        step { store.setLink(nil, for: id) }
+        XCTAssertNil(store.tasks[0].link)
+        undo.undo()
+        XCTAssertEqual(store.tasks[0].link?.host(), "keychron.com")
+        step { store.rename(id, to: "Buy a keyboard https://www.apple.com/shop") }
+        XCTAssertEqual(store.tasks[0].title, "Buy a keyboard")
+        XCTAssertEqual(store.tasks[0].link?.host(), "www.apple.com")
+    }
+
+    func testNextStepLabelAndClaudeLink() throws {
+        XCTAssertEqual(NextStep.linkLabel(URL(string: "https://www.toyotafinancial.com/x")!), "Open toyotafinancial.com")
+        var task = TaskItem(title: "File taxes & receipts")
+        task.deadline = Calendar.current.date(from: DateComponents(year: 2027, month: 4, day: 15))
+        let url = NextStep.claudeURL(for: task)
+        XCTAssertEqual(url.host(), "claude.ai")
+        XCTAssertEqual(url.path(), "/new")
+        let prompt = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?.first { $0.name == "q" }?.value)
+        XCTAssertTrue(prompt.contains("\u{201C}File taxes & receipts\u{201D}"), prompt)   // & survives encoding
+        XCTAssertTrue(prompt.contains("It's due"), prompt)
+        XCTAssertTrue(prompt.contains("first concrete step"), prompt)
+    }
 }

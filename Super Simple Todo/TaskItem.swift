@@ -25,21 +25,25 @@ struct TaskItem: Identifiable, Codable, Equatable {
     var tags: [String]
     /// The day the task is due (local start of day), or nil. Saved as a plain "yyyy-MM-dd" date.
     var deadline: Date?
+    /// A web page that helps with the task, shown as its next step.
+    var link: URL?
     var createdAt: Date
 
     init(id: UUID = UUID(), title: String, isDone: Bool = false,
-         priority: Priority = .none, tags: [String] = [], deadline: Date? = nil, createdAt: Date = Date()) {
+         priority: Priority = .none, tags: [String] = [], deadline: Date? = nil, link: URL? = nil,
+         createdAt: Date = Date()) {
         self.id = id
         self.title = title
         self.isDone = isDone
         self.priority = priority
         self.tags = tags
         self.deadline = deadline
+        self.link = link
         self.createdAt = createdAt
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, isDone, priority, tags, deadline, createdAt
+        case id, title, isDone, priority, tags, deadline, link, createdAt
         case section   // older files: one section per task, now read as a single tag
     }
 
@@ -53,6 +57,7 @@ struct TaskItem: Identifiable, Codable, Equatable {
         let section = try c.decodeIfPresent(String.self, forKey: .section)
         tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? (section.map { [$0] } ?? [])
         deadline = try c.decodeIfPresent(String.self, forKey: .deadline).flatMap(Self.dayFormatter.date(from:))
+        link = try c.decodeIfPresent(String.self, forKey: .link).flatMap(URL.init(string:))
         createdAt = try c.decode(Date.self, forKey: .createdAt)
     }
 
@@ -64,6 +69,7 @@ struct TaskItem: Identifiable, Codable, Equatable {
         try c.encode(priority, forKey: .priority)
         try c.encode(tags, forKey: .tags)
         try c.encodeIfPresent(deadline.map(Self.dayFormatter.string(from:)), forKey: .deadline)
+        try c.encodeIfPresent(link?.absoluteString, forKey: .link)
         try c.encode(createdAt, forKey: .createdAt)
     }
 

@@ -9,7 +9,7 @@
 ├── Super Simple Todo/            The app's source
 │   ├── SuperSimpleTodoApp.swift  App entry: main window, Settings window, menu shortcuts
 │   ├── ContentView.swift         The three tabs; Tasks tab: greeting and progress ring, add field, cards (selection, keys, rename, tag filter),
-│   │                             deadline labels and picker, empty states, celebration, right-click menus
+│   │                             deadline labels and picker, next-step links (NextStep), empty states, celebration, right-click menus
 │   ├── CalendarView.swift        Calendar tab: month grid with deadline dots, the selected day's due and finished tasks
 │   ├── Theme.swift               Warm background and card colors for light and dark mode
 │   ├── ActivityView.swift        Activity tab: summary line, daily chart, legend, hover tooltip, editable timeline, history editor
@@ -19,7 +19,7 @@
 │   ├── ActivityEvent.swift       A logged action, the per-day counts behind the chart, today/this-week counts
 │   └── Assets.xcassets/          App icon at every Mac size
 ├── Tests/
-│   └── TaskStoreTests.swift      31 unit tests for the store
+│   └── TaskStoreTests.swift      34 unit tests for the store
 ├── tools/
 │   ├── MakeIcon.swift            Draws the 1024 px app icon
 │   ├── install.sh                Builds a Release copy and installs it in /Applications
