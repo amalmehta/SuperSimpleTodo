@@ -1,6 +1,6 @@
 # Super Simple Todo — System Design
 
-A single-window Mac checklist: one list, sorted by priority, with optional tags on each task (Daily, Fitness, Work, Study, plus any you create). You add tasks, tick them off, and clear the finished ones. An Activity tab charts what you've done over time.
+A friendly single-window Mac checklist: one list, sorted by priority, with optional tags (Daily, Fitness, Work, Study, plus any you create) and deadlines on each task. You add tasks, tick them off, and clear the finished ones. A Calendar tab shows deadlines by month, and an Activity tab charts what you've done over time.
 
 ## Architecture
 
@@ -8,10 +8,13 @@ A single-window Mac checklist: one list, sorted by priority, with optional tags 
 flowchart LR
     User((You)) -->|type, tick, rename, filter, delete| TV[Tasks tab<br/>TasksView]
     User -->|browse, edit, delete history| AV[Activity tab<br/>ActivityView]
+    User -->|pick a day, tick| CV[Calendar tab<br/>CalendarView]
+    CV -->|toggle| TS
+    TS -->|"tasks(dueOn:) + completions(on:)"| CV
     User -->|"menu shortcuts ⌘N ⌘1 ⌘2 ⇧⌘⌫"| App[SuperSimpleTodoApp<br/>commands]
     App -->|notifications| TV
     User -->|⌘,| SV[SettingsView<br/>Settings window]
-    TV -->|add / rename / toggle / setPriority / toggleTag / delete / clearDone| TS[TaskStore<br/>ObservableObject]
+    TV -->|add / rename / toggle / setPriority / setDeadline / toggleTag / delete / clearDone| TS[TaskStore<br/>ObservableObject]
     AV -->|updateEvent / deleteEvents| TS
     SV -->|tags, clearHistory| TS
     TS <-->|"snapshot per change (⌘Z / ⇧⌘Z)"| UM[Window UndoManager]
@@ -31,8 +34,10 @@ flowchart LR
 | Component | File | Job |
 |---|---|---|
 | `SuperSimpleTodoApp` | `Super Simple Todo/SuperSimpleTodoApp.swift` | App entry point. Owns the one `TaskStore`, declares the main window, the Settings scene (⌘,) and the menu commands: File ▸ New Task (⌘N), View ▸ Tasks/Activity (⌘1/⌘2), Tasks ▸ Clear Done (⇧⌘⌫). The commands reach the views through two notifications. |
-| `ContentView` | `Super Simple Todo/ContentView.swift` | The "Tasks \| Activity" tab switcher. It hands the window's `UndoManager` to the store. |
-| `TasksView`, `TaskRow`, `TagChips`, `PriorityKey` | `Super Simple Todo/ContentView.swift` | The list: input field, a one-line color key, an optional "Showing [tag] ×" filter bar, and one list of selectable rows (colored tick circle, title or rename field, clickable tag labels). Keys: ⌫ deletes, Space ticks, Return renames, ↑↓ move. Right-click works on one task (Rename, Priority ▸, Tags ▸, Delete) or several (Tick or Untick, Delete). Double-click renames. Footer: "N of M done", Clear Done, Settings gear. |
+| `ContentView` | `Super Simple Todo/ContentView.swift` | The "Tasks \| Calendar \| Activity" tab switcher. It hands the window's `UndoManager` to the store. |
+| `TasksView`, `GreetingHeader`, `ProgressRing`, `AddTaskField`, `TaskRow`, `DeadlineLabel`, `DeadlinePicker`, `TagChips`, `PriorityKey`, `EmptyState` | `Super Simple Todo/ContentView.swift` | The list screen: a time-of-day greeting with a friendly progress line and a ring; a rounded add field; a quiet color key; an optional "Showing [tag] ×" filter bar; and selectable card rows (colored tick circle that springs into a check, title or rename field, deadline label, clickable tags). Kind empty states cover a new list, all done, and an empty filter. A brief "All done — nice work!" appears when the last task is ticked. Right-click ▸ Deadline offers Today, Tomorrow, In a Week, Pick a Date… (a calendar sheet) and Remove. Keys: ⌫ deletes, Space ticks, Return renames, ↑↓ move. Right-click works on one task (Rename, Priority ▸, Tags ▸, Delete) or several (Tick or Untick, Delete). Double-click renames. Footer: "N of M done", Clear Done, Settings gear. |
+| `CalendarView`, `MonthGrid`, `DayCell` | `Super Simple Todo/CalendarView.swift` | Month header with Today and ‹ › (or a sideways swipe). A 7-column grid starting on the system's first weekday; each day shows up to three dots in the due tasks' priority colors (grey when done) and a green check if something was finished. Clicking a day lists its due tasks (tickable) and its completions from the activity log. |
+| `Theme` | `Super Simple Todo/Theme.swift` | The warm background, card and hairline colors, each with its own light and dark shade. |
 | `ActivityView`, `EventRow`, `EventEditor`, `ActivityLegend` | `Super Simple Todo/ActivityView.swift` | A "Completed today · this week" line, a stacked bar chart of actions per day (7, 14 or 30 days), a legend, a hover tooltip per day, and a selectable timeline of every action, newest first, under plain day-header rows. ⌫ deletes selected entries; right-click or double-click opens `EventEditor` (task title, action, new priority, date and time, tags). |
 | `SettingsView` | `Super Simple Todo/SettingsView.swift` | All preferences in one place: **Hide done tasks**, the **Tags** list (add, rename, delete, drag to reorder) and **History** (entry count, Clear History… with a confirmation). |
 | `TaskStore` | `Super Simple Todo/TaskStore.swift` | The only place tasks, tags and history change. Every change runs through `change(_:_:)`, which snapshots the state, applies the change, registers an undo step and saves. It also parses `#tag` and `!` markers, sorts and filters, and records one event per action. |
@@ -50,6 +55,21 @@ flowchart LR
 - **Managing tags:** Settings (⌘,) ▸ Tags lets you add, rename (every task updates), delete (removed from every task) and drag to reorder.
 - **The list:** one flat list (open tasks first, then by priority), with no grouping. Each task shows its tags as small grey labels after the title.
 - **Activity:** each timeline row shows the task's tags at the time of the action.
+
+## Deadlines
+
+- **What a deadline is:** a calendar day (no time) on a task, or none. Any time on that day counts as the day.
+- **Setting one:** type `@today`, `@tomorrow`, `@fri`, `@oct30`, `@30oct`, `@10/30` or `@2026-10-30` while adding or renaming a task, or use right-click ▸ Deadline. A weekday means the next one, today included. A month and day that have already passed this year mean next year. Impossible dates like `@feb30`, and other `@` words like email addresses, stay in the title.
+- **In the list:** a small label reads "Today", "Tomorrow", a weekday within the next week, or a short date. Open tasks past their day show a red "Overdue". Deadlines don't change the sort.
+- **Calendar:** dots per day, and the selected day's due and finished tasks.
+- **Not logged in Activity:** setting or clearing a deadline isn't one of the five recorded actions, so the chart's colors stay the same.
+
+## Look and feel
+
+- **Warm and soft:** a faint warm background (warm near-black in dark mode), white rounded cards with a hairline border, and a rounded add field with a plus icon. Selected cards take a light accent tint.
+- **Friendly words:** a greeting by time of day ("Good morning", up to "Hello, night owl"), a progress line ("2 of 8 done. Nice going."), and kind empty states.
+- **Motion:** the tick circle springs into a check, rows ease into place, the progress ring animates, and a small "All done" message appears briefly when the last task is ticked. With Reduce Motion turned on in System Settings, these changes happen without animation.
+- **Priority colors stay as they were;** the warm accents (sun icon, empty-state symbols) use orange sparingly.
 
 ## Priorities and colors
 
@@ -96,6 +116,8 @@ The Activity chart uses a separate, validated palette, one color per action: Add
 - **Tags are stored on each task by name, not by id.** The files stay readable, and there's no lookup table. A rename has to update every task, which `renameTag` does. Names are unique, ignoring case.
 - **A separate list of known tags,** so the right-click menu can offer tags no task uses yet. Tag management lives in Settings with the other preferences.
 - **Events store the task's title, not a link to the task.** History stays readable after a task is deleted. Renaming a task doesn't rewrite old events; they keep the title it had at the time.
+- **Deadlines are days, saved as "yyyy-MM-dd".** Storing a date-time would shift a deadline to another day if you changed time zones. A plain date can't. Times weren't needed.
+- **Deadlines don't reorder the list.** The list stays priority-first so tasks don't jump around as days pass; the label and the red "Overdue" do the signalling.
 - **Undo by snapshots.** Before each change the store copies its three arrays; undo swaps them back and registers the reverse for redo. One generic mechanism covers every action, with no per-action undo code. Copying is cheap at this size. Undo lives in the main window's `UndoManager`, so ⌘Z in the Settings window doesn't undo tag changes; ⌘Z in the main window does.
 - **History is editable.** The log is a personal record, not an audit trail, so you can fix, delete or clear entries. Edits are undoable and never change tasks.
 - **Day headers in the timeline are plain rows.** macOS pins `List` section headers while scrolling, and a pinned header could cover the row beneath it so a day looked empty.
@@ -110,7 +132,7 @@ The Activity chart uses a separate, validated palette, one color per action: Add
 
 ## Testing
 
-`Tests/TaskStoreTests.swift` has 25 XCTest unit tests:
+`Tests/TaskStoreTests.swift` has 31 XCTest unit tests:
 - Adding: trims spaces, ignores blanks, flattens line breaks, and turns a trailing `!`/`!!`/`!!!` into a priority.
 - Tick/untick and the done count; delete and Clear Done.
 - Priority sorting, done tasks sinking below open ones, filtering by tag and hiding done tasks.
@@ -118,6 +140,7 @@ The Activity chart uses a separate, validated palette, one color per action: Add
 - Undo and redo across add, tick and Clear Done, including the saved file.
 - History: editing an entry (title, action, date, tags), deleting entries, and clearing the log, all without touching tasks; today and this-week completion counts.
 - Saving and reloading across launches; old files without priorities; a corrupt file is kept as an `.unreadable-` backup instead of being overwritten.
+- Deadlines: `parseDay` (today, tomorrow, weekdays including today, month and day in both orders, m/d, ISO, rolling to next year, and rejecting "sunny", "feb30" and plain numbers) against a fixed Wednesday; `@day` in typed text alongside `#` and `!` while email addresses stay; setting, clearing, undoing and renaming with `@day`; saving as a plain date with no key when unset; the calendar's per-day due and finished lists; and the label text.
 - Every action is logged and saved; history is filled in from creation dates; daily counts group by day and drop days outside the range.
 - Tags: a fresh store gets the four starters; `#tag` parsing and on-the-fly creation (several per task, case matching, duplicates dropped, `#deep-work`, "#1" and "C#" ignored, tag-only input); the list stays one priority-sorted list; toggle, rename (refuses a taken name) and delete update tasks; events record tags; files from the sections version load as tags and are saved without `section`.
 
@@ -132,11 +155,12 @@ Manual checks in the running app:
 - 2026-10-10, on sample data: color key and circle colors, priority sort, Activity tab at 7, 14 and 30 days, and a tick appearing live in the timeline.
 - 2026-10-21, screenshots of a test copy on sample data: the tag labels, priority colors and sorting on the Tasks tab, and the Activity chart and timeline with tags.
 - 2026-10-21, `tools/screenshots.sh` on sample data: done tasks at the bottom, the "Completed today · this week" line, and plain day headers in the timeline.
-- Not yet checked by hand: keyboard selection (⌫, Space, Return), renaming in place, tag filtering, the right-click menus, the history editor, Clear History, undo in the app, and the hover tooltip. These need clicking, and screen access was declined. Their store-side logic is covered by the tests above.
+- 2026-10-21, `tools/screenshots.sh`: the new look (greeting, ring, cards), deadline labels including a red Overdue, and the Calendar tab's dots, today marker and day list.
+- Not yet checked by hand: the tick animation and the "All done" celebration, the deadline picker sheet, month switching and swiping, keyboard selection (⌫, Space, Return), renaming in place, tag filtering, the right-click menus, the history editor, Clear History, undo in the app, and the hover tooltip. These need clicking, and screen access was declined. Their store-side logic is covered by the tests above.
 
 ## Known limits
 
-- No due dates, reminders, subtasks or manual reordering.
+- Deadlines are days only: no times, reminders or notifications. No subtasks or manual reordering.
 - Filtering is one tag at a time.
 - Adding or removing a tag, and plain renames, aren't logged in Activity.
 - Undo history lasts until the app quits.

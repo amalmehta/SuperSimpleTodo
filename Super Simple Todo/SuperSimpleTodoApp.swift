@@ -18,8 +18,10 @@ struct SuperSimpleTodoApp: App {
             CommandGroup(before: .toolbar) {
                 Button("Tasks") { NotificationCenter.default.post(name: .showTab, object: "tasks") }
                     .keyboardShortcut("1")
-                Button("Activity") { NotificationCenter.default.post(name: .showTab, object: "activity") }
+                Button("Calendar") { NotificationCenter.default.post(name: .showTab, object: "calendar") }
                     .keyboardShortcut("2")
+                Button("Activity") { NotificationCenter.default.post(name: .showTab, object: "activity") }
+                    .keyboardShortcut("3")
                 Divider()
             }
             CommandMenu("Tasks") {

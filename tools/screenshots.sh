@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Retakes the README screenshots (docs/images/tasks.png and activity.png) from a test copy of
+# Retakes the README screenshots (docs/images/tasks.png, calendar.png, activity.png) from a test copy of
 # the app running on generated sample data. Your real tasks are never read or changed.
 # The first run may ask to allow screen recording for your terminal app.
 set -euo pipefail
@@ -22,12 +22,19 @@ python3 - "$WORK/data" <<'PY'
 import json, sys, uuid, random, datetime as dt
 d = sys.argv[1]; random.seed(7); now = dt.datetime.now(dt.timezone.utc)
 iso = lambda t: t.strftime("%Y-%m-%dT%H:%M:%SZ")
-rows = [("Pay rent", 3, False, ["Daily"]), ("Finish quarterly report", 3, False, ["Work"]),
-        ("Run 5k", 2, False, ["Fitness"]), ("Review chapter 4 notes", 2, False, ["Study"]),
-        ("Call the dentist", 1, False, []), ("Water the plants", 0, False, ["Daily"]),
-        ("Stretch for 10 minutes", 1, True, ["Fitness", "Daily"]), ("Read that article", 0, True, ["Study"])]
-tasks = [{"id": str(uuid.uuid4()).upper(), "title": t, "priority": p, "isDone": done, "tags": tags,
-          "createdAt": iso(now - dt.timedelta(hours=i))} for i, (t, p, done, tags) in enumerate(rows)]
+today = dt.date.today()
+due = lambda days: None if days is None else (today + dt.timedelta(days=days)).isoformat()
+rows = [("Pay rent", 3, False, ["Daily"], 0), ("Finish quarterly report", 3, False, ["Work"], -1),
+        ("Run 5k", 2, False, ["Fitness"], 2), ("Review chapter 4 notes", 2, False, ["Study"], 9),
+        ("Call the dentist", 1, False, [], 1), ("Water the plants", 0, False, ["Daily"], None),
+        ("Book flights", 1, False, ["Work"], 16), ("Stretch for 10 minutes", 1, True, ["Fitness", "Daily"], None),
+        ("Read that article", 0, True, ["Study"], 0)]
+tasks = []
+for i, (t, p, done, tags, days) in enumerate(rows):
+    task = {"id": str(uuid.uuid4()).upper(), "title": t, "priority": p, "isDone": done, "tags": tags,
+            "createdAt": iso(now - dt.timedelta(hours=i))}
+    if days is not None: task["deadline"] = due(days)
+    tasks.append(task)
 json.dump(tasks, open(f"{d}/Tasks.json", "w"), indent=1)
 json.dump(["Daily", "Fitness", "Work", "Study"], open(f"{d}/Tags.json", "w"))
 names = [("Run 5k", ["Fitness"]), ("Email Sam", ["Work"]), ("Groceries", ["Daily"]), ("Flashcards", ["Study"]),
@@ -65,4 +72,5 @@ shoot() {  # $1 = tab, $2 = output file
   echo "Saved $2"
 }
 shoot tasks "$ROOT/docs/images/tasks.png"
+shoot calendar "$ROOT/docs/images/calendar.png"
 shoot activity "$ROOT/docs/images/activity.png"

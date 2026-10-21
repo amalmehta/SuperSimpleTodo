@@ -14,6 +14,7 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $tab) {
             TasksView().tabItem { Text("Tasks") }.tag("tasks")
+            CalendarView().tabItem { Text("Calendar") }.tag("calendar")
             ActivityView().tabItem { Text("Activity") }.tag("activity")
         }
         .frame(minWidth: 340, minHeight: 360)
@@ -40,26 +41,34 @@ struct TasksView: View {
     /// The task the "New Tag…" prompt is adding a tag to.
     @State private var tagTarget: TaskItem?
     @State private var newTagName = ""
+    /// The task the "Pick a Date…" sheet is setting a deadline for.
+    @State private var deadlineTarget: TaskItem?
 
     private var visibleTasks: [TaskItem] {
         store.visibleTasks(hideDone: hideDoneTasks, tag: tagFilter)
     }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Shown briefly after the last open task is ticked.
+    @State private var celebrating = false
+
     var body: some View {
-        VStack(spacing: 0) {
-            TextField("Add a task  (#tag, ! priority)", text: $newTitle)
-                .textFieldStyle(.roundedBorder)
-                .focused($inputFocused)
-                .help("Add #tag to tag it (a new #name makes a new tag), and !, !! or !!! for Low, Medium or High priority")
-                .onSubmit {
-                    store.add(newTitle)
-                    newTitle = ""
-                }
-                .padding([.horizontal, .top], 12)
+        VStack(alignment: .leading, spacing: 0) {
+            GreetingHeader(done: store.doneCount, total: store.tasks.count)
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
+
+            AddTaskField(text: $newTitle, focused: $inputFocused) {
+                store.add(newTitle)
+                newTitle = ""
+            }
+            .padding(.horizontal, 16)
 
             PriorityKey()
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 18)
+                .padding(.top, 6)
+                .padding(.bottom, 4)
 
             if let tagFilter {
                 HStack(spacing: 6) {
@@ -77,35 +86,62 @@ struct TasksView: View {
                 }
                 .font(.callout)
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 18)
                 .padding(.bottom, 4)
             }
 
             if visibleTasks.isEmpty {
-                Spacer()
-                Text(store.tasks.isEmpty ? "No tasks yet" : (tagFilter == nil ? "All done" : "Nothing with this tag"))
-                    .foregroundStyle(.secondary)
-                Spacer()
+                emptyState
             } else {
                 list
             }
 
-            Divider()
             HStack {
-                Text("\(store.doneCount) of \(store.tasks.count) done")
-                    .foregroundStyle(.secondary)
                 Spacer()
-                Button("Clear Done") { store.clearDone() }
-                    .disabled(store.doneCount == 0)
+                Button {
+                    store.clearDone()
+                } label: {
+                    Label("Clear Done", systemImage: "sparkles")
+                }
+                .buttonStyle(.borderless)
+                .disabled(store.doneCount == 0)
+                .help("Remove finished tasks (⇧⌘⌫)")
                 SettingsLink {
                     Image(systemName: "gearshape")
                 }
+                .buttonStyle(.borderless)
                 .accessibilityLabel("Settings")
                 .help("Settings (⌘,)")
             }
             .font(.callout)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+        }
+        .background(Theme.background)
+        .overlay(alignment: .bottom) {
+            if celebrating {
+                Label("All done — nice work!", systemImage: "party.popper")
+                    .font(.callout.weight(.medium))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Theme.card, in: Capsule())
+                    .overlay(Capsule().stroke(Theme.cardStroke))
+                    .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
+                    .padding(.bottom, 48)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .onChange(of: store.doneCount) { old, new in
+            // Celebrate only the moment the last open task gets ticked.
+            guard new > old, new == store.tasks.count, new > 0 else { return }
+            withAnimation(reduceMotion ? nil : .spring(duration: 0.4)) { celebrating = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.4)) { celebrating = false }
+            }
+        }
+        .sheet(item: $deadlineTarget) { task in
+            DeadlinePicker(task: task) { store.setDeadline($0, for: task.id) }
         }
         .onAppear { inputFocused = true }
         .onReceive(NotificationCenter.default.publisher(for: .newTask)) { _ in inputFocused = true }
@@ -122,20 +158,51 @@ struct TasksView: View {
         }
     }
 
+    @ViewBuilder
+    private var emptyState: some View {
+        if store.tasks.isEmpty {
+            EmptyState(symbol: "leaf", title: "A fresh start",
+                       message: "Type a task above and press Return.\nTry \u{201C}Water the plants #daily !\u{201D}")
+        } else if tagFilter != nil {
+            EmptyState(symbol: "tag", title: "Nothing here yet",
+                       message: "No open tasks with this tag.")
+        } else {
+            EmptyState(symbol: "sun.max", title: "All clear",
+                       message: "Everything's done. Enjoy the rest of your day.")
+        }
+    }
+
+    /// Ticks with a gentle spring, so the row eases into the done area instead of jumping.
+    private func toggle(_ ids: Set<UUID>) {
+        withAnimation(reduceMotion ? nil : .spring(duration: 0.35, bounce: 0.2)) { store.toggle(ids) }
+    }
+
     private var list: some View {
         List(selection: $selection) {
             ForEach(visibleTasks) { task in
                 TaskRow(task: task,
-                        onToggle: { store.toggle(task.id) },
+                        onToggle: { toggle([task.id]) },
                         onTagTap: { tag in tagFilter = (tagFilter == tag ? nil : tag) },
                         editor: editingID == task.id ? AnyView(editor) : nil)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 3, leading: 12, bottom: 3, trailing: 12))
+                    .listRowBackground(
+                        RoundedRectangle(cornerRadius: Theme.cardRadius)
+                            .fill(selection.contains(task.id) ? Color.accentColor.opacity(0.14) : Theme.card)
+                            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius)
+                                .stroke(selection.contains(task.id) ? Color.accentColor.opacity(0.5) : Theme.cardStroke))
+                            .padding(.vertical, 3)
+                            .padding(.horizontal, 12)
+                    )
             }
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .contextMenu(forSelectionType: UUID.self) { ids in
             if ids.count == 1, let task = store.tasks.first(where: { $0.id == ids.first }) {
                 menu(for: task)
             } else if !ids.isEmpty {
-                Button("Tick or Untick \(ids.count) Tasks") { store.toggle(ids) }
+                Button("Tick or Untick \(ids.count) Tasks") { toggle(ids) }
                 Button("Delete \(ids.count) Tasks", role: .destructive) { store.delete(ids) }
             }
         } primaryAction: { ids in
@@ -144,7 +211,7 @@ struct TasksView: View {
         .onDeleteCommand { store.delete(selection) }
         .onKeyPress(.space) {
             guard editingID == nil, !selection.isEmpty else { return .ignored }
-            store.toggle(selection)
+            toggle(selection)
             return .handled
         }
         .onKeyPress(.return) {
@@ -185,6 +252,17 @@ struct TasksView: View {
         )) {
             ForEach(Priority.allCases.reversed()) { p in
                 Text(p.name).tag(p)
+            }
+        }
+        Menu("Deadline") {
+            let today = Calendar.current.startOfDay(for: Date())
+            Button("Today") { store.setDeadline(today, for: task.id) }
+            Button("Tomorrow") { store.setDeadline(Calendar.current.date(byAdding: .day, value: 1, to: today), for: task.id) }
+            Button("In a Week") { store.setDeadline(Calendar.current.date(byAdding: .day, value: 7, to: today), for: task.id) }
+            Button("Pick a Date…") { deadlineTarget = task }
+            if task.deadline != nil {
+                Divider()
+                Button("Remove Deadline") { store.setDeadline(nil, for: task.id) }
             }
         }
         Menu("Tags") {
@@ -247,6 +325,8 @@ struct TaskRow: View {
                 Image(systemName: task.isDone ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(circleColor)
                     .imageScale(.large)
+                    .contentTransition(.symbolEffect(.replace))
+                    .symbolEffect(.bounce, value: task.isDone)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(task.isDone ? "Mark not done" : "Mark done")
@@ -258,12 +338,18 @@ struct TaskRow: View {
             } else {
                 title
             }
-            if !task.tags.isEmpty {
+            if task.deadline != nil || !task.tags.isEmpty {
                 Spacer(minLength: 8)
+            }
+            if let deadline = task.deadline {
+                DeadlineLabel(deadline: deadline, isDone: task.isDone)
+            }
+            if !task.tags.isEmpty {
                 TagChips(tags: task.tags, onTap: onTagTap)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 6)
+        .padding(.horizontal, 4)
     }
 
     private var title: some View {
@@ -301,8 +387,202 @@ struct PriorityKey: View {
             Spacer()
         }
         .font(.caption)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(.tertiary)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Circle colors: red High, orange Medium, blue Low, grey None")
+    }
+}
+
+/// "Good morning" plus a friendly progress line and a small ring.
+struct GreetingHeader: View {
+    let done: Int
+    let total: Int
+
+    private var greeting: (text: String, symbol: String) {
+        switch Calendar.current.component(.hour, from: Date()) {
+        case 5..<12: ("Good morning", "sun.horizon")
+        case 12..<17: ("Good afternoon", "sun.max")
+        case 17..<22: ("Good evening", "sun.haze")
+        default: ("Hello, night owl", "moon.stars")
+        }
+    }
+
+    private var progressLine: String {
+        switch (done, total) {
+        case (_, 0): "Nothing on your list yet."
+        case (0, _): "\(total) to go. Let's get started."
+        case let (d, t) where d == t: "All \(t) done. Lovely."
+        case let (d, t): "\(d) of \(t) done. Nice going."
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Label(greeting.text, systemImage: greeting.symbol)
+                    .font(.title2.weight(.semibold))
+                    .labelStyle(GreetingLabelStyle())
+                Text(progressLine)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if total > 0 {
+                ProgressRing(fraction: Double(done) / Double(total))
+                    .frame(width: 34, height: 34)
+                    .accessibilityLabel("\(done) of \(total) done")
+            }
+        }
+    }
+}
+
+private struct GreetingLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 6) {
+            configuration.icon.foregroundStyle(.orange)
+            configuration.title
+        }
+    }
+}
+
+struct ProgressRing: View {
+    let fraction: Double
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(Theme.cardStroke, lineWidth: 5)
+            Circle()
+                .trim(from: 0, to: fraction)
+                .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.spring(duration: 0.5), value: fraction)
+            if fraction >= 1 {
+                Image(systemName: "checkmark")
+                    .font(.caption.bold())
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+    }
+}
+
+/// The rounded "Add a task" field with a plus icon.
+struct AddTaskField: View {
+    @Binding var text: String
+    var focused: FocusState<Bool>.Binding
+    let onSubmit: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "plus.circle.fill")
+                .foregroundStyle(Color.accentColor)
+                .imageScale(.large)
+            TextField("Add a task  (#tag  !priority  @day)", text: $text)
+                .textFieldStyle(.plain)
+                .focused(focused)
+                .onSubmit(onSubmit)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius)
+            .stroke(focused.wrappedValue ? Color.accentColor.opacity(0.6) : Theme.cardStroke))
+        .help("Add #tag to tag it (a new #name makes a new tag), !, !! or !!! for Low, Medium or High priority, and @today, @fri or @oct30 for a deadline")
+    }
+}
+
+/// A calm, friendly message for an empty list.
+struct EmptyState: View {
+    let symbol: String
+    let title: String
+    let message: String
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Spacer()
+            Image(systemName: symbol)
+                .font(.system(size: 40, weight: .light))
+                .foregroundStyle(.orange.opacity(0.8))
+                .symbolEffect(.pulse, options: .nonRepeating)
+            Text(title).font(.title3.weight(.semibold))
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 24)
+    }
+}
+
+/// "Overdue", "Today", "Tomorrow", a weekday within the next week, or a short date.
+struct DeadlineLabel: View {
+    let deadline: Date
+    let isDone: Bool
+
+    static func text(for deadline: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+        let today = calendar.startOfDay(for: now)
+        let days = calendar.dateComponents([.day], from: today, to: calendar.startOfDay(for: deadline)).day ?? 0
+        switch days {
+        case ..<0: return "Overdue"
+        case 0: return "Today"
+        case 1: return "Tomorrow"
+        case 2...6: return deadline.formatted(.dateTime.weekday(.abbreviated))
+        default: return deadline.formatted(.dateTime.month(.abbreviated).day())
+        }
+    }
+
+    private var isOverdue: Bool { !isDone && deadline < Calendar.current.startOfDay(for: Date()) }
+    private var isToday: Bool { Calendar.current.isDateInToday(deadline) }
+
+    var body: some View {
+        Label(Self.text(for: deadline), systemImage: isOverdue ? "exclamationmark.circle" : "calendar")
+            .labelStyle(DeadlineLabelStyle())
+            .font(.caption.weight(isOverdue || isToday ? .semibold : .regular))
+            .foregroundStyle(isDone ? AnyShapeStyle(.tertiary) : isOverdue ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+            .help("Due \(deadline.formatted(date: .complete, time: .omitted))")
+            .accessibilityLabel(isOverdue ? "Overdue, was due \(deadline.formatted(date: .long, time: .omitted))"
+                                          : "Due \(deadline.formatted(date: .long, time: .omitted))")
+    }
+}
+
+private struct DeadlineLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 3) { configuration.icon; configuration.title }
+    }
+}
+
+/// A small sheet with a calendar for choosing a deadline.
+struct DeadlinePicker: View {
+    @Environment(\.dismiss) private var dismiss
+    let task: TaskItem
+    let onSave: (Date?) -> Void
+    @State private var date: Date
+
+    init(task: TaskItem, onSave: @escaping (Date?) -> Void) {
+        self.task = task
+        self.onSave = onSave
+        _date = State(initialValue: task.deadline ?? Calendar.current.startOfDay(for: Date()))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Deadline for \u{201C}\(task.title)\u{201D}").font(.headline)
+            DatePicker("Deadline", selection: $date, displayedComponents: .date)
+                .datePickerStyle(.graphical)
+                .labelsHidden()
+            HStack {
+                if task.deadline != nil {
+                    Button("Remove Deadline") { onSave(nil); dismiss() }
+                }
+                Spacer()
+                Button("Cancel", role: .cancel) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Set Deadline") { onSave(date); dismiss() }
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 320)
     }
 }

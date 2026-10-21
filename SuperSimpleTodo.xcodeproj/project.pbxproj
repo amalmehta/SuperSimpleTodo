@@ -11,10 +11,12 @@
 		4D67932FC8F827C747B79456 /* SuperSimpleTodoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23E2A4DB495B241B6E245BDE /* SuperSimpleTodoApp.swift */; };
 		5147DE35BC6424A9E3EC42BB /* TaskStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9808950D578DA13F8A73D10E /* TaskStore.swift */; };
 		52726CA6CDA945DCA8C04F8A /* ActivityEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7586C6E06D71EE84F7287DCD /* ActivityEvent.swift */; };
+		7741673805B4745E9698EE96 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 468031AAB8327D30F59723B9 /* Theme.swift */; };
 		83175DB434AB16781575BD5D /* TaskStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83E9C928D7617D53564A8163 /* TaskStoreTests.swift */; };
 		88E6D1856BD255E9AEA7CFFE /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DA89942E10BDA47779FAC5 /* ActivityView.swift */; };
 		BAF3342410FEB9E6AE36DD9B /* TaskItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = E269F73FC4DF3EA0914538BD /* TaskItem.swift */; };
 		C5E344FBE0E3A71D7EB9A62C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18E11A4C039F19F736A56402 /* SettingsView.swift */; };
+		D5A4C194DFA3430EF48A0304 /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 150A6A94380C2BB5A3FF9802 /* CalendarView.swift */; };
 		D7DA1025F10AB266B64A30FC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0F548FED8B18C149003FD219 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -30,9 +32,11 @@
 
 /* Begin PBXFileReference section */
 		0F548FED8B18C149003FD219 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		150A6A94380C2BB5A3FF9802 /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarView.swift; sourceTree = "<group>"; };
 		18E11A4C039F19F736A56402 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		20DA89942E10BDA47779FAC5 /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityView.swift; sourceTree = "<group>"; };
 		23E2A4DB495B241B6E245BDE /* SuperSimpleTodoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuperSimpleTodoApp.swift; sourceTree = "<group>"; };
+		468031AAB8327D30F59723B9 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		7586C6E06D71EE84F7287DCD /* ActivityEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityEvent.swift; sourceTree = "<group>"; };
 		83C7F8E5CC64A54784B00259 /* Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		83E9C928D7617D53564A8163 /* TaskStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskStoreTests.swift; sourceTree = "<group>"; };
@@ -58,11 +62,13 @@
 				7586C6E06D71EE84F7287DCD /* ActivityEvent.swift */,
 				20DA89942E10BDA47779FAC5 /* ActivityView.swift */,
 				0F548FED8B18C149003FD219 /* Assets.xcassets */,
+				150A6A94380C2BB5A3FF9802 /* CalendarView.swift */,
 				86F9FFBF8637E80591D36E53 /* ContentView.swift */,
 				18E11A4C039F19F736A56402 /* SettingsView.swift */,
 				23E2A4DB495B241B6E245BDE /* SuperSimpleTodoApp.swift */,
 				E269F73FC4DF3EA0914538BD /* TaskItem.swift */,
 				9808950D578DA13F8A73D10E /* TaskStore.swift */,
+				468031AAB8327D30F59723B9 /* Theme.swift */,
 			);
 			path = "Super Simple Todo";
 			sourceTree = "<group>";
@@ -172,11 +178,13 @@
 			files = (
 				52726CA6CDA945DCA8C04F8A /* ActivityEvent.swift in Sources */,
 				88E6D1856BD255E9AEA7CFFE /* ActivityView.swift in Sources */,
+				D5A4C194DFA3430EF48A0304 /* CalendarView.swift in Sources */,
 				42EDBABAC11D802FE3B10B1E /* ContentView.swift in Sources */,
 				C5E344FBE0E3A71D7EB9A62C /* SettingsView.swift in Sources */,
 				4D67932FC8F827C747B79456 /* SuperSimpleTodoApp.swift in Sources */,
 				BAF3342410FEB9E6AE36DD9B /* TaskItem.swift in Sources */,
 				5147DE35BC6424A9E3EC42BB /* TaskStore.swift in Sources */,
+				7741673805B4745E9698EE96 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

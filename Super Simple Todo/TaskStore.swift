@@ -59,28 +59,32 @@ final class TaskStore: ObservableObject {
 
     // MARK: Tasks
 
-    /// Adds a task. Words like "!", "!!" or "!!!" set Low, Medium or High priority, and each "#word"
-    /// adds that tag, creating it if it doesn't exist yet.
+    /// Adds a task. Words like "!", "!!" or "!!!" set Low, Medium or High priority, each "#word"
+    /// adds that tag (creating it if it doesn't exist yet), and "@fri", "@tomorrow" or "@oct30" sets a deadline.
     func add(_ title: String) {
         let parsed = Self.parse(Self.flatten(title))
         guard !parsed.title.isEmpty else { return }
         change("Add Task") {
             let task = TaskItem(title: parsed.title, priority: parsed.priority,
-                                tags: parsed.tags.compactMap { ensureTag(Self.tagName(fromTag: $0)) }.uniqued())
+                                tags: parsed.tags.compactMap { ensureTag(Self.tagName(fromTag: $0)) }.uniqued(),
+                                deadline: parsed.deadline)
             tasks.append(task)
             log(.added, task)
         }
     }
 
-    /// Changes a task's title. "#tags" in the new text are added, and "!" markers set the priority.
+    /// Changes a task's title. "#tags" in the new text are added, "!" markers set the priority,
+    /// and an "@day" sets the deadline.
     func rename(_ id: UUID, to text: String) {
         let parsed = Self.parse(Self.flatten(text))
         guard let i = tasks.firstIndex(where: { $0.id == id }), !parsed.title.isEmpty else { return }
         let newTags = parsed.tags.map { Self.tagName(fromTag: $0) }
         let samePriority = parsed.priority == .none || parsed.priority == tasks[i].priority
-        guard parsed.title != tasks[i].title || !newTags.isEmpty || !samePriority else { return }
+        let sameDeadline = parsed.deadline == nil || parsed.deadline == tasks[i].deadline
+        guard parsed.title != tasks[i].title || !newTags.isEmpty || !samePriority || !sameDeadline else { return }
         change("Edit Task") {
             tasks[i].title = parsed.title
+            if let deadline = parsed.deadline { tasks[i].deadline = deadline }
             for name in newTags.compactMap(ensureTag) where !tasks[i].tags.contains(name) {
                 tasks[i].tags.append(name)
             }
@@ -89,6 +93,24 @@ final class TaskStore: ObservableObject {
                 log(.priorityChanged, tasks[i], detail: parsed.priority.name)
             }
         }
+    }
+
+    /// Sets or clears a task's deadline (any time on that day counts as the day).
+    func setDeadline(_ date: Date?, for id: UUID, calendar: Calendar = .current) {
+        guard let i = tasks.firstIndex(where: { $0.id == id }) else { return }
+        let day = date.map { calendar.startOfDay(for: $0) }
+        guard tasks[i].deadline != day else { return }
+        change(day == nil ? "Remove Deadline" : "Set Deadline") { tasks[i].deadline = day }
+    }
+
+    /// Tasks due on the given day, open ones first, then by priority.
+    func tasks(dueOn day: Date, calendar: Calendar = .current) -> [TaskItem] {
+        sortedTasks.filter { $0.deadline.map { calendar.isDate($0, inSameDayAs: day) } ?? false }
+    }
+
+    /// Completions logged on the given day, earliest first.
+    func completions(on day: Date, calendar: Calendar = .current) -> [ActivityEvent] {
+        events.filter { $0.kind == .completed && calendar.isDate($0.date, inSameDayAs: day) }
     }
 
     func setPriority(_ priority: Priority, for id: UUID) {
@@ -225,23 +247,72 @@ final class TaskStore: ObservableObject {
         text.components(separatedBy: .newlines).joined(separator: " ").trimmingCharacters(in: .whitespaces)
     }
 
-    /// Splits typed text into a title, a priority ("!"/"!!"/"!!!" words) and tags ("#" followed by
-    /// a letter). If nothing but markers was typed, the text is kept as the title.
-    static func parse(_ text: String) -> (title: String, priority: Priority, tags: [String]) {
+    /// Splits typed text into a title, a priority ("!"/"!!"/"!!!" words), tags ("#" followed by a letter)
+    /// and a deadline ("@" followed by a day `parseDay` understands). Anything else, including an "@"
+    /// word that isn't a day, stays in the title. If nothing but markers was typed, the text is the title.
+    static func parse(_ text: String, now: Date = Date(), calendar: Calendar = .current)
+        -> (title: String, priority: Priority, tags: [String], deadline: Date?) {
         var words: [Substring] = []
         var priority = Priority.none
         var tags: [String] = []
+        var deadline: Date?
         for word in text.split(separator: " ") {
             if (1...3).contains(word.count), word.allSatisfy({ $0 == "!" }) {
                 priority = Priority(rawValue: word.count)!
             } else if word.first == "#", word.dropFirst().first?.isLetter == true {
                 tags.append(String(word.dropFirst()))
+            } else if word.first == "@", let day = parseDay(String(word.dropFirst()), now: now, calendar: calendar) {
+                deadline = day
             } else {
                 words.append(word)
             }
         }
-        if words.isEmpty { return (text, .none, []) }
-        return (words.joined(separator: " "), priority, tags)
+        if words.isEmpty { return (text, .none, [], nil) }
+        return (words.joined(separator: " "), priority, tags, deadline)
+    }
+
+    /// Understands "today", "tomorrow"/"tmrw", weekday names ("fri", "friday": the next one, today
+    /// included), "oct30"/"october30"/"30oct", "10/30" and "2026-10-30". A month and day without a
+    /// year that has already passed means next year. Returns the start of that day, or nil.
+    static func parseDay(_ raw: String, now: Date = Date(), calendar: Calendar = .current) -> Date? {
+        let word = raw.lowercased().trimmingCharacters(in: .punctuationCharacters.subtracting(CharacterSet(charactersIn: "/-")))
+        let today = calendar.startOfDay(for: now)
+        switch word {
+        case "today", "tod": return today
+        case "tomorrow", "tmrw", "tom": return calendar.date(byAdding: .day, value: 1, to: today)
+        default: break
+        }
+        // A word counts as a weekday or month only if it's that name or a 3+ letter start of it.
+        func match(_ word: Substring, _ names: [String]) -> Int? {
+            word.count >= 3 ? names.firstIndex { $0.hasPrefix(word) } : nil
+        }
+        let weekdays = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+        if let index = match(Substring(word), weekdays) {
+            let ahead = (index + 1 - calendar.component(.weekday, from: today) + 7) % 7
+            return calendar.date(byAdding: .day, value: ahead, to: today)
+        }
+        let currentYear = calendar.component(.year, from: today)
+        func day(_ year: Int?, _ month: Int, _ dayOfMonth: Int) -> Date? {
+            var parts = DateComponents(year: year ?? currentYear, month: month, day: dayOfMonth)
+            guard let date = calendar.date(from: parts),
+                  calendar.component(.day, from: date) == dayOfMonth else { return nil }   // rejects "feb30"
+            if year == nil, date < today {
+                parts.year = currentYear + 1
+                return calendar.date(from: parts)
+            }
+            return date
+        }
+        let iso = word.split(separator: "-").compactMap { Int($0) }
+        if iso.count == 3, word.split(separator: "-").count == 3 { return day(iso[0], iso[1], iso[2]) }
+        let slash = word.split(separator: "/").compactMap { Int($0) }
+        if slash.count == 2, word.split(separator: "/").count == 2 { return day(nil, slash[0], slash[1]) }
+        let months = ["january", "february", "march", "april", "may", "june", "july", "august",
+                      "september", "october", "november", "december"]
+        let letters = word.prefix { $0.isLetter }, digits = word.drop { $0.isLetter }
+        if let m = match(letters, months), let d = Int(digits) { return day(nil, m + 1, d) }
+        let leadDigits = word.prefix { $0.isNumber }, trail = word.drop { $0.isNumber }
+        if let m = match(trail, months), let d = Int(leadDigits) { return day(nil, m + 1, d) }
+        return nil
     }
 
     /// "#deep-work" -> "Deep work".

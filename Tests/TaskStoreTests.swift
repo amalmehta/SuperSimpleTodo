@@ -319,4 +319,96 @@ final class TaskStoreTests: XCTestCase {
         XCTAssertEqual(counts.today, 1)
         XCTAssertEqual(counts.week, 2)
     }
+
+    // MARK: Deadlines
+
+    /// Wednesday 21 October 2026, noon, in a fixed calendar.
+    private var wednesday: (now: Date, cal: Calendar) {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "America/Los_Angeles")!
+        return (cal.date(from: DateComponents(year: 2026, month: 10, day: 21, hour: 12))!, cal)
+    }
+
+    private func ymd(_ date: Date?, _ cal: Calendar) -> String? {
+        date.map { let c = cal.dateComponents([.year, .month, .day], from: $0); return "\(c.year!)-\(c.month!)-\(c.day!)" }
+    }
+
+    func testParseDayUnderstandsCommonWords() {
+        let (now, cal) = wednesday
+        let cases: [(String, String?)] = [
+            ("today", "2026-10-21"), ("tomorrow", "2026-10-22"), ("tmrw", "2026-10-22"),
+            ("fri", "2026-10-23"), ("Friday", "2026-10-23"), ("wed", "2026-10-21"), ("tue", "2026-10-27"),
+            ("oct30", "2026-10-30"), ("october30", "2026-10-30"), ("30oct", "2026-10-30"), ("10/30", "2026-10-30"),
+            ("2026-11-02", "2026-11-2"), ("jan5", "2027-1-5"), ("oct1", "2027-10-1"),
+            ("sunny", nil), ("feb30", nil), ("foo", nil), ("12", nil),
+        ]
+        for (word, expected) in cases {
+            XCTAssertEqual(ymd(TaskStore.parseDay(word, now: now, calendar: cal), cal), expected, word)
+        }
+    }
+
+    func testAtDayInTextSetsDeadlineAndOtherAtsStay() {
+        let (now, cal) = wednesday
+        let parsed = TaskStore.parse("Pay rent @fri #daily !!!", now: now, calendar: cal)
+        XCTAssertEqual(parsed.title, "Pay rent")
+        XCTAssertEqual(ymd(parsed.deadline, cal), "2026-10-23")
+        XCTAssertEqual(parsed.priority, .high)
+        let email = TaskStore.parse("Email sam@example.com @nowhere", now: now, calendar: cal)
+        XCTAssertEqual(email.title, "Email sam@example.com @nowhere")
+        XCTAssertNil(email.deadline)
+    }
+
+    func testSetDeadlineRenameAndUndo() {
+        let store = TaskStore(fileURL: fileURL)
+        let undo = UndoManager()
+        undo.groupsByEvent = false
+        store.undoManager = undo
+        func step(_ action: () -> Void) { undo.beginUndoGrouping(); action(); undo.endUndoGrouping() }
+
+        step { store.add("Ship report @tomorrow") }
+        let id = store.tasks[0].id
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date()))!
+        XCTAssertEqual(store.tasks[0].deadline, tomorrow)
+        step { store.setDeadline(Date(), for: id) }
+        XCTAssertEqual(store.tasks[0].deadline, Calendar.current.startOfDay(for: Date()))   // time dropped
+        step { store.setDeadline(nil, for: id) }
+        XCTAssertNil(store.tasks[0].deadline)
+        undo.undo()
+        XCTAssertEqual(store.tasks[0].deadline, Calendar.current.startOfDay(for: Date()))
+        step { store.rename(id, to: "Ship the report @tomorrow") }
+        XCTAssertEqual(store.tasks[0].title, "Ship the report")
+        XCTAssertEqual(store.tasks[0].deadline, tomorrow)
+    }
+
+    func testDeadlineIsSavedAsPlainDate() throws {
+        let store = TaskStore(fileURL: fileURL)
+        store.add("Plan @2026-11-02")
+        let saved = try String(contentsOf: fileURL, encoding: .utf8)
+        XCTAssertTrue(saved.contains("\"deadline\" : \"2026-11-02\""), saved)
+        XCTAssertEqual(TaskStore(fileURL: fileURL).tasks[0].deadline, store.tasks[0].deadline)
+        store.add("Nothing due")   // a task without a deadline writes no deadline key
+        XCTAssertEqual(try String(contentsOf: fileURL, encoding: .utf8).components(separatedBy: "\"deadline\"").count, 2)
+    }
+
+    func testDayListsForTheCalendar() {
+        let store = TaskStore(fileURL: fileURL)
+        store.add("low @today !"); store.add("high @today !!!"); store.add("later @2099-01-01"); store.add("none")
+        store.toggle(store.tasks[3].id)
+        let today = Date()
+        XCTAssertEqual(store.tasks(dueOn: today).map(\.title), ["high", "low"])
+        XCTAssertEqual(store.completions(on: today).map(\.taskTitle), ["none"])
+        XCTAssertTrue(store.completions(on: Date(timeIntervalSinceNow: -86_400 * 3)).isEmpty)
+    }
+
+    func testDeadlineLabelText() {
+        let (now, cal) = wednesday
+        let day = { (offset: Int) in cal.date(byAdding: .day, value: offset, to: cal.startOfDay(for: now))! }
+        XCTAssertEqual(DeadlineLabel.text(for: day(-1), now: now, calendar: cal), "Overdue")
+        XCTAssertEqual(DeadlineLabel.text(for: day(0), now: now, calendar: cal), "Today")
+        XCTAssertEqual(DeadlineLabel.text(for: day(1), now: now, calendar: cal), "Tomorrow")
+        XCTAssertEqual(DeadlineLabel.text(for: day(2), now: now, calendar: cal),
+                       day(2).formatted(.dateTime.weekday(.abbreviated)))
+        XCTAssertEqual(DeadlineLabel.text(for: day(9), now: now, calendar: cal),
+                       day(9).formatted(.dateTime.month(.abbreviated).day()))
+    }
 }

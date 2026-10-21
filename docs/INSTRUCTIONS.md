@@ -29,7 +29,7 @@ xcodebuild -project SuperSimpleTodo.xcodeproj -scheme "Super Simple Todo" -deriv
 open "build/Build/Products/Debug/Super Simple Todo.app"
 ```
 
-Run the tests (25 unit tests):
+Run the tests (31 unit tests):
 
 ```bash
 xcodebuild -project SuperSimpleTodo.xcodeproj -scheme "Super Simple Todo" -derivedDataPath build test
@@ -49,8 +49,9 @@ xcodegen generate
 |---|---|
 | `!`, `!!`, `!!!` | Low, Medium, High priority (red, orange, blue circle; grey is none) |
 | `#name` | Adds a tag. A new name creates the tag, e.g. `#deep-work` → "Deep work". Use as many as you like. |
+| `@day` | Sets a deadline: `@today`, `@tomorrow`, `@fri` (the next Friday, today included), `@oct30`, `@30oct`, `@10/30` or `@2026-10-30`. A date that has already passed this year means next year. Other `@` words, like an email address, stay in the title. |
 
-Example: `Finish report #work !!!`
+Example: `Finish report #work !!! @fri`
 
 **Work with tasks:**
 - Click the circle to tick a task done, and click again to untick it.
@@ -60,7 +61,8 @@ Example: `Finish report #work !!!`
   - Return renames (Return again saves, Esc cancels)
   - ↑↓ move the selection
 - Double-click a task to rename it. Typing `#tag` or `!!` while renaming adds a tag or sets the priority.
-- Right-click a task for **Rename**, **Priority ▸**, **Tags ▸** (tick or untick a tag, or **New Tag…**) and **Delete**. With several selected: **Tick or Untick** and **Delete**.
+- Right-click a task for **Rename**, **Priority ▸**, **Deadline ▸** (Today, Tomorrow, In a Week, Pick a Date…, Remove Deadline), **Tags ▸** (tick or untick a tag, or **New Tag…**) and **Delete**.
+- A task with a deadline shows "Today", "Tomorrow", a weekday within the next week, or a date. Past deadlines on open tasks show a red "Overdue". Deadlines don't change the order. With several selected: **Tick or Untick** and **Delete**.
 - Click a tag label to show only tasks with that tag. Click × in the "Showing" bar to show everything again.
 - **Clear Done** (or ⇧⌘⌫) removes every finished task.
 - The list shows open tasks first, sorted High → None and then by the order you added them. Done tasks sit at the bottom.
@@ -68,9 +70,14 @@ Example: `Finish report #work !!!`
 
 **Shortcuts:**
 - ⌘N: new task
-- ⌘1 / ⌘2: Tasks / Activity tab
+- ⌘1 / ⌘2 / ⌘3: Tasks / Calendar / Activity tab
 - ⇧⌘⌫: Clear Done
 - ⌘,: Settings
+
+**Calendar tab:**
+- **Month grid:** each day shows up to three dots in the priority colors of tasks due that day. Grey dots are done tasks. A small green check marks days you finished something.
+- **Moving around:** the ‹ › arrows or a sideways swipe change the month, and **Today** jumps back.
+- **Day details:** click a day to see what's due (tick tasks right there) and what you finished.
 
 **Activity tab:**
 - **Summary line:** how many tasks you completed today and this week.
@@ -103,7 +110,7 @@ The app saves after every change. If a file is ever damaged and can't be read, t
 ./tools/screenshots.sh
 ```
 
-This builds the app, runs a separate test copy (with its own app ID) on generated sample data, and saves `docs/images/tasks.png` and `docs/images/activity.png`. Your real tasks are never read. The first run may ask you to allow screen recording for your terminal.
+This builds the app, runs a separate test copy (with its own app ID) on generated sample data, and saves `docs/images/tasks.png`, `calendar.png` and `activity.png`. Keep the window on a Retina screen for sharp images. Your real tasks are never read. The first run may ask you to allow screen recording for your terminal.
 
 ## Trying it on sample data
 
@@ -114,7 +121,7 @@ open "build/Build/Products/Debug/Super Simple Todo.app" --args -TasksFile /path/
 ```
 
 - `-TasksFile`: read and write tasks from that file. `Tags.json` and `Activity.json` come from the same folder.
-- `-StartTab activity`: open on the Activity tab.
+- `-StartTab calendar` or `-StartTab activity`: open on that tab.
 
 ## Redraw the icon
 

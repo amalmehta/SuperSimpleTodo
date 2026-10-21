@@ -52,6 +52,7 @@ struct ActivityView: View {
             Divider()
             timeline
         }
+        .background(Theme.background)
         .sheet(item: $editing) { event in
             EventEditor(event: event) { store.updateEvent($0) }
         }
@@ -169,6 +170,7 @@ struct ActivityView: View {
                     }
                 }
                 .onDeleteCommand { store.deleteEvents(selection) }
+                .scrollContentBackground(.hidden)
             }
         }
     }

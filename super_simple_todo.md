@@ -71,6 +71,17 @@ Asked and answered (2026-10-11, sections):
 Asked and answered (2026-10-21, tags replace sections):
 - "Make it just 1 singular list, with an option to add tags, not separate categories." Sections are gone; tasks carry tags.
 
+Asked and answered (2026-10-21, friendlier look, deadlines and calendar):
+- Look: "warm & soft", with a greeting and progress ring, friendly empty states, a gentle tick animation (plus a small all-done celebration), and softer card rows.
+- Deadlines: date only, set by typing @day (@fri, @tomorrow, @oct30…) or right-click ▸ Deadline; shown as a small label (red "Overdue"), without changing the sort.
+- Calendar tab: month grid with deadline dots; clicking a day shows what's due and what you finished.
+
+Decided without asking (2026-10-21, look, deadlines and calendar):
+- Deadlines are stored as plain "yyyy-MM-dd" days so they don't move across time zones; @weekday includes today; past month-day dates mean next year.
+- Setting a deadline isn't an Activity event (keeps the chart's five colors).
+- Tabs are Tasks | Calendar | Activity (⌘1/⌘2/⌘3); animations respect Reduce Motion.
+- The footer's "N of M done" moved into the greeting's progress line and ring.
+
 Asked and answered (2026-10-21, improvements):
 - "Do all that": the ten proposed improvements (row selection with ⌫/Space/Return, unreadable-file backup, done tasks sink, undo, rename, tag filter, menu shortcuts, completed today/this week, install script, screenshot script).
 - "There should be a way to delete / modify the history of tasks": history entries can be edited (title, action, date and time, tags) or deleted from the Activity timeline, and the whole log cleared in Settings.
@@ -108,6 +119,7 @@ Decided without asking (sections, superseded 2026-10-21):
 
 CHANGELOG:
 
+- 2026-10-21 — friendlier look (warm background, greeting + progress ring, card rows, empty states, tick animation, all-done celebration); deadlines (@day, right-click ▸ Deadline, Overdue label); Calendar tab; 31 unit tests
 - 2026-10-21 — added selection and keys (⌫, Space, Return), rename, tag filter, undo/redo, menu shortcuts, done tasks at the bottom, completed today/this week, editable and clearable history, unreadable-file backup, tools/install.sh and tools/screenshots.sh; fixed day headers hiding timeline rows; 25 unit tests
 - 2026-10-21 — pushed to a private GitHub repo (SuperSimpleTodo) with README, screenshots, docs/INSTRUCTIONS.md and docs/FILE-STRUCTURE.md; added a -StartTab launch option for screenshots
 - 2026-10-21 — replaced sections with tags: one priority-sorted list, several #tags per task shown as labels, right-click ▸ Tags, Settings ▸ Tags; old sections load as tags; 18 unit tests

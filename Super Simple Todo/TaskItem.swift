@@ -23,20 +23,23 @@ struct TaskItem: Identifiable, Codable, Equatable {
     var isDone: Bool
     var priority: Priority
     var tags: [String]
+    /// The day the task is due (local start of day), or nil. Saved as a plain "yyyy-MM-dd" date.
+    var deadline: Date?
     var createdAt: Date
 
     init(id: UUID = UUID(), title: String, isDone: Bool = false,
-         priority: Priority = .none, tags: [String] = [], createdAt: Date = Date()) {
+         priority: Priority = .none, tags: [String] = [], deadline: Date? = nil, createdAt: Date = Date()) {
         self.id = id
         self.title = title
         self.isDone = isDone
         self.priority = priority
         self.tags = tags
+        self.deadline = deadline
         self.createdAt = createdAt
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, isDone, priority, tags, createdAt
+        case id, title, isDone, priority, tags, deadline, createdAt
         case section   // older files: one section per task, now read as a single tag
     }
 
@@ -49,6 +52,7 @@ struct TaskItem: Identifiable, Codable, Equatable {
         priority = try c.decodeIfPresent(Priority.self, forKey: .priority) ?? .none
         let section = try c.decodeIfPresent(String.self, forKey: .section)
         tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? (section.map { [$0] } ?? [])
+        deadline = try c.decodeIfPresent(String.self, forKey: .deadline).flatMap(Self.dayFormatter.date(from:))
         createdAt = try c.decode(Date.self, forKey: .createdAt)
     }
 
@@ -59,6 +63,17 @@ struct TaskItem: Identifiable, Codable, Equatable {
         try c.encode(isDone, forKey: .isDone)
         try c.encode(priority, forKey: .priority)
         try c.encode(tags, forKey: .tags)
+        try c.encodeIfPresent(deadline.map(Self.dayFormatter.string(from:)), forKey: .deadline)
         try c.encode(createdAt, forKey: .createdAt)
     }
+
+    /// A calendar date in the user's time zone, so a deadline stays on the same day.
+    static let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = .current
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
 }
