@@ -1,10 +1,13 @@
 import SwiftUI
 
 struct ContentView: View {
+    // For screenshots: `--args -StartTab activity` opens on the Activity tab.
+    @State private var tab = UserDefaults.standard.string(forKey: "StartTab") ?? "tasks"
+
     var body: some View {
-        TabView {
-            TasksView().tabItem { Text("Tasks") }
-            ActivityView().tabItem { Text("Activity") }
+        TabView(selection: $tab) {
+            TasksView().tabItem { Text("Tasks") }.tag("tasks")
+            ActivityView().tabItem { Text("Activity") }.tag("activity")
         }
         .frame(minWidth: 340, minHeight: 360)
     }

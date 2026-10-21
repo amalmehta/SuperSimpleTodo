@@ -76,7 +76,7 @@ The Activity chart uses a separate, validated palette, one color per action: Add
 - Known tags and their order: `~/Library/Application Support/Super Simple Todo/Tags.json` (a leftover `Sections.json` is only read if `Tags.json` is missing)
 - Both are pretty-printed JSON with ISO 8601 dates, written atomically.
 - Preferences: UserDefaults for `com.amalmehta.SuperSimpleTodo`: `hideDoneTasks`, `activityDays`.
-- Sample data for trying the app: launch with `--args -TasksFile /path/Tasks.json`. `Activity.json` and `Tags.json` are then read from the same folder, and your real data is never touched.
+- Sample data for trying the app: launch with `--args -TasksFile /path/Tasks.json`. `Activity.json` and `Tags.json` are then read from the same folder, and your real data is never touched. Add `-StartTab activity` to open on the Activity tab. Both options were used for the README screenshots.
 - Nothing leaves the Mac. No network, no accounts, no sync.
 
 ## Key decisions and trade-offs
@@ -115,7 +115,8 @@ xcodebuild -project SuperSimpleTodo.xcodeproj -scheme "Super Simple Todo" -deriv
 Manual checks in the running app:
 - 2026-10-06: add, tick, delete, Settings, Hide done tasks, Clear Done, relaunch.
 - 2026-10-10, on sample data: color key and circle colors, priority sort, Activity tab at 7, 14 and 30 days, and a tick appearing live in the timeline.
-- Not yet checked by hand: the hover tooltip, the right-click Priority and Tags menus, the New Tag… prompt, and the Settings Tags list. These need screen access, which was declined.
+- 2026-10-21, screenshots of a test copy on sample data: the tag labels, priority colors and sorting on the Tasks tab, and the Activity chart and timeline with tags.
+- Not yet checked by hand: the hover tooltip, the right-click Priority and Tags menus, the New Tag… prompt, and the Settings Tags list. These need clicking, and screen access was declined.
 
 ## Known limits
 
