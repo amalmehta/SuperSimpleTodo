@@ -71,6 +71,17 @@ Asked and answered (2026-10-11, sections):
 Asked and answered (2026-10-21, tags replace sections):
 - "Make it just 1 singular list, with an option to add tags, not separate categories." Sections are gone; tasks carry tags.
 
+Asked and answered (2026-10-21, improvements):
+- "Do all that": the ten proposed improvements (row selection with ⌫/Space/Return, unreadable-file backup, done tasks sink, undo, rename, tag filter, menu shortcuts, completed today/this week, install script, screenshot script).
+- "There should be a way to delete / modify the history of tasks": history entries can be edited (title, action, date and time, tags) or deleted from the Activity timeline, and the whole log cleared in Settings.
+
+Decided without asking (2026-10-21, improvements):
+- History edits never change tasks; they're undoable like everything else.
+- Undo uses a snapshot of tasks, tags and history per change, and lives in the main window (⌘Z in Settings doesn't undo).
+- Plain renames aren't logged in Activity; a rename that changes priority is.
+- The timeline's day headers became plain rows, because pinned List headers could hide the row beneath them (seen in the owner's screenshot).
+- tools/install.sh was run: the app is installed in /Applications.
+
 Decided without asking (2026-10-21):
 - A task can have several tags, shown as small grey labels after its title; the list stays one list sorted by priority.
 - Add tags by typing #name (every #word counts; new names create tags), or right-click ▸ Tags ▸ tick a tag / New Tag…; manage them in Settings ▸ Tags.
@@ -97,6 +108,7 @@ Decided without asking (sections, superseded 2026-10-21):
 
 CHANGELOG:
 
+- 2026-10-21 — added selection and keys (⌫, Space, Return), rename, tag filter, undo/redo, menu shortcuts, done tasks at the bottom, completed today/this week, editable and clearable history, unreadable-file backup, tools/install.sh and tools/screenshots.sh; fixed day headers hiding timeline rows; 25 unit tests
 - 2026-10-21 — pushed to a private GitHub repo (SuperSimpleTodo) with README, screenshots, docs/INSTRUCTIONS.md and docs/FILE-STRUCTURE.md; added a -StartTab launch option for screenshots
 - 2026-10-21 — replaced sections with tags: one priority-sorted list, several #tags per task shown as labels, right-click ▸ Tags, Settings ▸ Tags; old sections load as tags; 18 unit tests
 - 2026-10-11 — sections now always show, even when empty, with an "Add one with #name" hint

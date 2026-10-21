@@ -1,6 +1,16 @@
 # Super Simple Todo — Instructions
 
-## Set up
+## Install
+
+To put the app in /Applications (and in Launchpad and Spotlight):
+
+```bash
+./tools/install.sh
+```
+
+The script builds a Release copy, quits the running app, replaces `/Applications/Super Simple Todo.app`, and opens it. Your tasks aren't affected.
+
+## Set up for development
 
 You need a Mac with macOS 14 or later and Xcode installed.
 
@@ -19,7 +29,7 @@ xcodebuild -project SuperSimpleTodo.xcodeproj -scheme "Super Simple Todo" -deriv
 open "build/Build/Products/Debug/Super Simple Todo.app"
 ```
 
-Run the tests (18 unit tests):
+Run the tests (25 unit tests):
 
 ```bash
 xcodebuild -project SuperSimpleTodo.xcodeproj -scheme "Super Simple Todo" -derivedDataPath build test
@@ -44,15 +54,39 @@ Example: `Finish report #work !!!`
 
 **Work with tasks:**
 - Click the circle to tick a task done, and click again to untick it.
-- Right-click a task for **Priority ▸**, **Tags ▸** (tick or untick a tag, or **New Tag…**) and **Delete**.
-- **Clear Done** removes every finished task.
-- The list is sorted High → None, and keeps the order you added tasks within each level.
+- Click a row to select it (⌘-click or ⇧-click for several). Then:
+  - ⌫ deletes
+  - Space ticks or unticks
+  - Return renames (Return again saves, Esc cancels)
+  - ↑↓ move the selection
+- Double-click a task to rename it. Typing `#tag` or `!!` while renaming adds a tag or sets the priority.
+- Right-click a task for **Rename**, **Priority ▸**, **Tags ▸** (tick or untick a tag, or **New Tag…**) and **Delete**. With several selected: **Tick or Untick** and **Delete**.
+- Click a tag label to show only tasks with that tag. Click × in the "Showing" bar to show everything again.
+- **Clear Done** (or ⇧⌘⌫) removes every finished task.
+- The list shows open tasks first, sorted High → None and then by the order you added them. Done tasks sit at the bottom.
+- **⌘Z** undoes the last change and **⇧⌘Z** redoes it. That includes deletes, Clear Done, ticks, renames, tag changes and history edits.
 
-**Activity tab:** a bar chart of what you did each day (Added, Completed, Deleted, Unticked, Priority changed) over 7, 14 or 30 days. Hover a bar for that day's numbers. The timeline below lists every action with its tags.
+**Shortcuts:**
+- ⌘N: new task
+- ⌘1 / ⌘2: Tasks / Activity tab
+- ⇧⌘⌫: Clear Done
+- ⌘,: Settings
+
+**Activity tab:**
+- **Summary line:** how many tasks you completed today and this week.
+- **Chart:** a bar chart of what you did each day (Added, Completed, Deleted, Unticked, Priority changed) over 7, 14 or 30 days. Hover a bar for that day's numbers.
+- **Timeline:** every action with its tags.
+
+**Editing history** (this never changes your tasks):
+- Select entries and press ⌫ to delete them.
+- Right-click or double-click an entry to edit its task name, action, date and time, or tags.
+- To delete all history: Settings ▸ History ▸ **Clear History…**
+- ⌘Z in the main window undoes any of these.
 
 **Settings (⌘, or the gear):**
 - **Hide done tasks.**
 - **Tags:** add, rename, delete, or drag to reorder. Renaming or deleting a tag updates every task that has it.
+- **History:** how many actions are recorded, and **Clear History…**
 
 ## Your data
 
@@ -61,7 +95,15 @@ Everything stays on your Mac, in `~/Library/Application Support/Super Simple Tod
 - `Tags.json`: your tags
 - `Activity.json`: the history behind the Activity tab
 
-The app saves after every change.
+The app saves after every change. If a file is ever damaged and can't be read, the app keeps it as `Tasks.unreadable-<date>.json` (or the equivalent for the other files) and starts fresh, rather than overwriting it.
+
+## Refresh the README screenshots
+
+```bash
+./tools/screenshots.sh
+```
+
+This builds the app, runs a separate test copy (with its own app ID) on generated sample data, and saves `docs/images/tasks.png` and `docs/images/activity.png`. Your real tasks are never read. The first run may ask you to allow screen recording for your terminal.
 
 ## Trying it on sample data
 

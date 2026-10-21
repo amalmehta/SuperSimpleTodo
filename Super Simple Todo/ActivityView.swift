@@ -6,6 +6,8 @@ struct ActivityView: View {
     @EnvironmentObject private var store: TaskStore
     @AppStorage("activityDays") private var days = 14
     @State private var selectedDay: Date?
+    @State private var selection = Set<UUID>()
+    @State private var editing: ActivityEvent?
 
     private var counts: [DailyCount] { dailyCounts(store.events, days: days) }
 
@@ -33,6 +35,10 @@ struct ActivityView: View {
             }
             .padding([.horizontal, .top], 12)
 
+            summary
+                .padding(.horizontal, 12)
+                .padding(.top, 6)
+
             chart
                 .frame(height: 170)
                 .padding(.horizontal, 12)
@@ -46,6 +52,16 @@ struct ActivityView: View {
             Divider()
             timeline
         }
+        .sheet(item: $editing) { event in
+            EventEditor(event: event) { store.updateEvent($0) }
+        }
+    }
+
+    private var summary: some View {
+        let done = completedCounts(store.events)
+        return Text("Completed today: **\(done.today)** · this week: **\(done.week)**")
+            .font(.callout)
+            .foregroundStyle(.secondary)
     }
 
     private var chart: some View {
@@ -125,15 +141,83 @@ struct ActivityView: View {
                 VStack { Spacer(); Text("Nothing yet").foregroundStyle(.secondary); Spacer() }
                     .frame(maxWidth: .infinity)
             } else {
-                List {
+                // Day headers are ordinary rows rather than List sections: section headers stay pinned
+                // while scrolling and can hide the row beneath them.
+                List(selection: $selection) {
                     ForEach(byDay.keys.sorted(by: >), id: \.self) { day in
-                        Section(day.formatted(.dateTime.weekday(.wide).month().day())) {
-                            ForEach(byDay[day]!.sorted { $0.date > $1.date }) { event in
-                                EventRow(event: event)
-                            }
+                        Text(day.formatted(.dateTime.weekday(.wide).month().day()))
+                            .font(.callout.bold())
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 6)
+                            .selectionDisabled()
+                        ForEach(byDay[day]!.sorted { $0.date > $1.date }) { event in
+                            EventRow(event: event).tag(event.id)
                         }
                     }
                 }
+                .contextMenu(forSelectionType: UUID.self) { ids in
+                    if ids.count == 1, let event = store.events.first(where: { $0.id == ids.first }) {
+                        Button("Edit…") { editing = event }
+                    }
+                    if !ids.isEmpty {
+                        Button(ids.count == 1 ? "Delete from History" : "Delete \(ids.count) from History",
+                               role: .destructive) { store.deleteEvents(ids) }
+                    }
+                } primaryAction: { ids in
+                    if ids.count == 1, let event = store.events.first(where: { $0.id == ids.first }) {
+                        editing = event
+                    }
+                }
+                .onDeleteCommand { store.deleteEvents(selection) }
+            }
+        }
+    }
+}
+
+/// Edits one history entry: what was done, to which task, when, and its tags.
+struct EventEditor: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var draft: ActivityEvent
+    @State private var tagText: String
+    let onSave: (ActivityEvent) -> Void
+
+    init(event: ActivityEvent, onSave: @escaping (ActivityEvent) -> Void) {
+        _draft = State(initialValue: event)
+        _tagText = State(initialValue: event.tags.joined(separator: ", "))
+        self.onSave = onSave
+    }
+
+    var body: some View {
+        Form {
+            TextField("Task", text: $draft.taskTitle)
+            Picker("Action", selection: $draft.kind) {
+                ForEach(ActivityEvent.Kind.allCases) { Text($0.name).tag($0) }
+            }
+            if draft.kind == .priorityChanged {
+                Picker("New priority", selection: Binding(
+                    get: { draft.detail ?? Priority.none.name },
+                    set: { draft.detail = $0 }
+                )) {
+                    ForEach(Priority.allCases.reversed()) { Text($0.name).tag($0.name) }
+                }
+            }
+            DatePicker("When", selection: $draft.date, in: ...Date())
+            TextField("Tags", text: $tagText, prompt: Text("Comma separated"))
+        }
+        .formStyle(.grouped)
+        .frame(width: 360)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Save") {
+                    var edited = draft
+                    if edited.kind != .priorityChanged { edited.detail = nil }
+                    edited.tags = tagText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+                        .filter { !$0.isEmpty }
+                    onSave(edited)
+                    dismiss()
+                }
+                .disabled(draft.taskTitle.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
     }

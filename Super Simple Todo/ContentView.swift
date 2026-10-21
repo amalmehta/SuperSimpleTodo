@@ -1,6 +1,13 @@
 import SwiftUI
 
+extension Notification.Name {
+    static let newTask = Notification.Name("SuperSimpleTodo.newTask")
+    static let showTab = Notification.Name("SuperSimpleTodo.showTab")
+}
+
 struct ContentView: View {
+    @EnvironmentObject private var store: TaskStore
+    @Environment(\.undoManager) private var undoManager
     // For screenshots: `--args -StartTab activity` opens on the Activity tab.
     @State private var tab = UserDefaults.standard.string(forKey: "StartTab") ?? "tasks"
 
@@ -10,6 +17,12 @@ struct ContentView: View {
             ActivityView().tabItem { Text("Activity") }.tag("activity")
         }
         .frame(minWidth: 340, minHeight: 360)
+        .onAppear { store.undoManager = undoManager }
+        .onChange(of: undoManager) { store.undoManager = undoManager }
+        .onReceive(NotificationCenter.default.publisher(for: .showTab)) { note in
+            if let name = note.object as? String { tab = name }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .newTask)) { _ in tab = "tasks" }
     }
 }
 
@@ -18,12 +31,18 @@ struct TasksView: View {
     @AppStorage("hideDoneTasks") private var hideDoneTasks = false
     @State private var newTitle = ""
     @FocusState private var inputFocused: Bool
+    @State private var selection = Set<UUID>()
+    @State private var tagFilter: String?
+    /// The task being renamed in place, and its text.
+    @State private var editingID: UUID?
+    @State private var editText = ""
+    @FocusState private var editFocused: Bool
     /// The task the "New Tag…" prompt is adding a tag to.
     @State private var tagTarget: TaskItem?
     @State private var newTagName = ""
 
     private var visibleTasks: [TaskItem] {
-        hideDoneTasks ? store.sortedTasks.filter { !$0.isDone } : store.sortedTasks
+        store.visibleTasks(hideDone: hideDoneTasks, tag: tagFilter)
     }
 
     var body: some View {
@@ -42,21 +61,33 @@ struct TasksView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
 
+            if let tagFilter {
+                HStack(spacing: 6) {
+                    Text("Showing")
+                    TagChips(tags: [tagFilter])
+                    Button {
+                        self.tagFilter = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Show all tasks")
+                    .help("Show all tasks")
+                    Spacer()
+                }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 4)
+            }
+
             if visibleTasks.isEmpty {
                 Spacer()
-                Text(store.tasks.isEmpty ? "No tasks yet" : "All done")
+                Text(store.tasks.isEmpty ? "No tasks yet" : (tagFilter == nil ? "All done" : "Nothing with this tag"))
                     .foregroundStyle(.secondary)
                 Spacer()
             } else {
-                List {
-                    ForEach(visibleTasks) { task in
-                        TaskRow(task: task) { store.toggle(task.id) }
-                            .contextMenu { menu(for: task) }
-                    }
-                    .onDelete { offsets in
-                        offsets.map { visibleTasks[$0].id }.forEach(store.delete)
-                    }
-                }
+                list
             }
 
             Divider()
@@ -77,6 +108,8 @@ struct TasksView: View {
             .padding(.vertical, 8)
         }
         .onAppear { inputFocused = true }
+        .onReceive(NotificationCenter.default.publisher(for: .newTask)) { _ in inputFocused = true }
+        .onChange(of: store.tags) { if let tag = tagFilter, !store.tags.contains(tag) { tagFilter = nil } }
         .alert("New Tag", isPresented: Binding(get: { tagTarget != nil }, set: { if !$0 { tagTarget = nil } })) {
             TextField("Name", text: $newTagName)
             Button("Add") {
@@ -89,8 +122,63 @@ struct TasksView: View {
         }
     }
 
+    private var list: some View {
+        List(selection: $selection) {
+            ForEach(visibleTasks) { task in
+                TaskRow(task: task,
+                        onToggle: { store.toggle(task.id) },
+                        onTagTap: { tag in tagFilter = (tagFilter == tag ? nil : tag) },
+                        editor: editingID == task.id ? AnyView(editor) : nil)
+            }
+        }
+        .contextMenu(forSelectionType: UUID.self) { ids in
+            if ids.count == 1, let task = store.tasks.first(where: { $0.id == ids.first }) {
+                menu(for: task)
+            } else if !ids.isEmpty {
+                Button("Tick or Untick \(ids.count) Tasks") { store.toggle(ids) }
+                Button("Delete \(ids.count) Tasks", role: .destructive) { store.delete(ids) }
+            }
+        } primaryAction: { ids in
+            if ids.count == 1, let id = ids.first { beginEdit(id) }
+        }
+        .onDeleteCommand { store.delete(selection) }
+        .onKeyPress(.space) {
+            guard editingID == nil, !selection.isEmpty else { return .ignored }
+            store.toggle(selection)
+            return .handled
+        }
+        .onKeyPress(.return) {
+            guard editingID == nil, selection.count == 1, let id = selection.first else { return .ignored }
+            beginEdit(id)
+            return .handled
+        }
+    }
+
+    private var editor: some View {
+        TextField("Title", text: $editText)
+            .textFieldStyle(.plain)
+            .focused($editFocused)
+            .onSubmit(commitEdit)
+            .onExitCommand { editingID = nil }
+            .onChange(of: editFocused) { if !editFocused { commitEdit() } }
+    }
+
+    private func beginEdit(_ id: UUID) {
+        guard let task = store.tasks.first(where: { $0.id == id }) else { return }
+        editText = task.title
+        editingID = id
+        DispatchQueue.main.async { editFocused = true }
+    }
+
+    private func commitEdit() {
+        guard let id = editingID else { return }
+        editingID = nil
+        store.rename(id, to: editText)
+    }
+
     @ViewBuilder
     private func menu(for task: TaskItem) -> some View {
+        Button("Rename") { beginEdit(task.id) }
         Picker("Priority", selection: Binding(
             get: { task.priority },
             set: { store.setPriority($0, for: task.id) }
@@ -114,30 +202,44 @@ struct TasksView: View {
     }
 }
 
-/// A task's tags as small grey labels.
+/// A task's tags as small grey labels; clickable when `onTap` is given.
 struct TagChips: View {
     let tags: [String]
+    var onTap: ((String) -> Void)?
 
     var body: some View {
         HStack(spacing: 4) {
             ForEach(tags, id: \.self) { tag in
-                Text(tag)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 1)
-                    .background(Color.secondary.opacity(0.12), in: Capsule())
-                    .lineLimit(1)
+                if let onTap {
+                    Button { onTap(tag) } label: { chip(tag) }
+                        .buttonStyle(.plain)
+                        .help("Show only \(tag) tasks")
+                } else {
+                    chip(tag)
+                }
             }
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: onTap == nil ? .combine : .contain)
         .accessibilityLabel("Tags: \(tags.joined(separator: ", "))")
+    }
+
+    private func chip(_ tag: String) -> some View {
+        Text(tag)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 1)
+            .background(Color.secondary.opacity(0.12), in: Capsule())
+            .lineLimit(1)
     }
 }
 
 struct TaskRow: View {
     let task: TaskItem
     let onToggle: () -> Void
+    var onTagTap: ((String) -> Void)?
+    /// Shown instead of the title while renaming.
+    var editor: AnyView?
 
     var body: some View {
         HStack {
@@ -151,15 +253,23 @@ struct TaskRow: View {
             .accessibilityValue(task.priority == .none ? "" : "\(task.priority.name) priority")
             .help(task.priority == .none ? "No priority" : "\(task.priority.name) priority")
 
-            Text(task.title)
-                .strikethrough(task.isDone)
-                .foregroundStyle(task.isDone ? .secondary : .primary)
+            if let editor {
+                editor
+            } else {
+                title
+            }
             if !task.tags.isEmpty {
                 Spacer(minLength: 8)
-                TagChips(tags: task.tags)
+                TagChips(tags: task.tags, onTap: onTagTap)
             }
         }
         .padding(.vertical, 2)
+    }
+
+    private var title: some View {
+        Text(task.title)
+            .strikethrough(task.isDone)
+            .foregroundStyle(task.isDone ? .secondary : .primary)
     }
 
     private var circleColor: Color {

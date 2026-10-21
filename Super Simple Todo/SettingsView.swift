@@ -6,6 +6,7 @@ struct SettingsView: View {
     @State private var newTag = ""
     @State private var renaming: String?
     @State private var renameText = ""
+    @State private var confirmClear = false
 
     var body: some View {
         Form {
@@ -54,8 +55,27 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Section {
+                HStack {
+                    Text("\(store.events.count) actions recorded")
+                    Spacer()
+                    Button("Clear History…") { confirmClear = true }
+                        .disabled(store.events.isEmpty)
+                }
+            } header: {
+                Text("History")
+            } footer: {
+                Text("Clears the Activity tab's chart and timeline. Your tasks stay. To remove single entries, select them on the Activity tab and press ⌫, or right-click to edit. ⌘Z in the main window undoes.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
+        .confirmationDialog("Clear all history?", isPresented: $confirmClear) {
+            Button("Clear History", role: .destructive) { store.clearHistory() }
+        } message: {
+            Text("This removes every entry from the Activity tab. Your tasks aren't affected.")
+        }
         .frame(width: 380)
     }
 

@@ -29,13 +29,13 @@ struct ActivityEvent: Identifiable, Codable, Equatable {
     }
 
     let id: UUID
-    let date: Date
-    let kind: Kind
-    let taskTitle: String
+    var date: Date
+    var kind: Kind
+    var taskTitle: String
     /// For priority changes, the new priority's name.
-    let detail: String?
+    var detail: String?
     /// The task's tags at the time of the action.
-    let tags: [String]
+    var tags: [String]
 
     init(id: UUID = UUID(), date: Date = Date(), kind: Kind, taskTitle: String,
          detail: String? = nil, tags: [String] = []) {
@@ -98,4 +98,13 @@ func dailyCounts(_ events: [ActivityEvent], days: Int, endingAt end: Date = Date
             counts[day]?[kind].map { DailyCount(day: day, kind: kind, count: $0) }
         }
     }
+}
+
+/// How many tasks were completed today and since the start of this week.
+func completedCounts(_ events: [ActivityEvent], now: Date = Date(),
+                     calendar: Calendar = .current) -> (today: Int, week: Int) {
+    let today = calendar.startOfDay(for: now)
+    let weekStart = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? today
+    let completed = events.filter { $0.kind == .completed && $0.date <= now }
+    return (completed.filter { $0.date >= today }.count, completed.filter { $0.date >= weekStart }.count)
 }

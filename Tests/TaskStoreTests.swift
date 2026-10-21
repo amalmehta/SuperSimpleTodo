@@ -199,6 +199,124 @@ final class TaskStoreTests: XCTestCase {
         try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true)
         try Data("not json".utf8).write(to: fileURL)
-        XCTAssertTrue(TaskStore(fileURL: fileURL).tasks.isEmpty)
+        let store = TaskStore(fileURL: fileURL)
+        XCTAssertTrue(store.tasks.isEmpty)
+        store.add("New")   // saving must not destroy the unreadable file
+        let dir = fileURL.deletingLastPathComponent()
+        let backups = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+            .filter { $0.hasPrefix("Tasks.unreadable-") }
+        XCTAssertEqual(backups.count, 1)
+        XCTAssertEqual(try String(contentsOf: dir.appendingPathComponent(backups[0]), encoding: .utf8), "not json")
+    }
+
+    func testDoneTasksSinkBelowOpenOnes() {
+        let store = TaskStore(fileURL: fileURL)
+        store.add("high done !!!"); store.add("low open !"); store.add("none open")
+        store.toggle(store.tasks[0].id)
+        XCTAssertEqual(store.sortedTasks.map(\.title), ["low open", "none open", "high done"])
+    }
+
+    func testVisibleTasksFiltersByTagAndDone() {
+        let store = TaskStore(fileURL: fileURL)
+        store.add("a #work"); store.add("b #work #daily"); store.add("c")
+        store.toggle(store.tasks[0].id)
+        XCTAssertEqual(store.visibleTasks(hideDone: false, tag: "Work").map(\.title), ["b", "a"])
+        XCTAssertEqual(store.visibleTasks(hideDone: true, tag: "Work").map(\.title), ["b"])
+        XCTAssertEqual(store.visibleTasks(hideDone: true, tag: nil).map(\.title), ["b", "c"])
+    }
+
+    func testRenameKeepsTagsAndReadsMarkers() {
+        let store = TaskStore(fileURL: fileURL)
+        store.add("Run #fitness")
+        let id = store.tasks[0].id
+        store.rename(id, to: "Run 5k #daily !!")
+        XCTAssertEqual(store.tasks[0].title, "Run 5k")
+        XCTAssertEqual(store.tasks[0].tags, ["Fitness", "Daily"])
+        XCTAssertEqual(store.tasks[0].priority, .medium)
+        XCTAssertEqual(store.events.last?.kind, .priorityChanged)
+        let eventCount = store.events.count
+        store.rename(id, to: "   ")             // blank: ignored
+        store.rename(id, to: "Run 5k")           // no change: nothing logged
+        XCTAssertEqual(store.tasks[0].title, "Run 5k")
+        XCTAssertEqual(store.events.count, eventCount)
+    }
+
+    func testToggleAndDeleteSeveralAtOnce() {
+        let store = TaskStore(fileURL: fileURL)
+        store.add("a"); store.add("b"); store.add("c")
+        store.toggle(store.tasks[0].id)
+        let ab = Set(store.tasks.prefix(2).map(\.id))
+        store.toggle(ab)                          // one open among them: all become done
+        XCTAssertEqual(store.tasks.map(\.isDone), [true, true, false])
+        store.toggle(ab)                          // all done: all reopen
+        XCTAssertEqual(store.tasks.map(\.isDone), [false, false, false])
+        store.delete(ab)
+        XCTAssertEqual(store.tasks.map(\.title), ["c"])
+    }
+
+    func testUndoAndRedoRestoreTasksHistoryAndFile() {
+        let store = TaskStore(fileURL: fileURL)
+        let undo = UndoManager()
+        undo.groupsByEvent = false
+        store.undoManager = undo
+        func step(_ action: () -> Void) { undo.beginUndoGrouping(); action(); undo.endUndoGrouping() }
+
+        step { store.add("Keep #work") }
+        step { store.toggle(store.tasks[0].id) }
+        step { store.clearDone() }
+        XCTAssertTrue(store.tasks.isEmpty)
+        XCTAssertEqual(undo.undoActionName, "Clear Done")
+
+        undo.undo()
+        XCTAssertEqual(store.tasks.map(\.title), ["Keep"])
+        XCTAssertTrue(store.tasks[0].isDone)
+        XCTAssertEqual(store.events.map(\.kind), [.added, .completed])
+        XCTAssertEqual(TaskStore(fileURL: fileURL).tasks.map(\.title), ["Keep"])   // saved
+
+        undo.redo()
+        XCTAssertTrue(store.tasks.isEmpty)
+        XCTAssertEqual(store.events.last?.kind, .deleted)
+    }
+
+    func testEditDeleteAndClearHistoryLeaveTasksAlone() {
+        let store = TaskStore(fileURL: fileURL)
+        store.add("a"); store.add("b")
+        store.toggle(store.tasks[0].id)
+        var edited = store.events[0]
+        edited.taskTitle = "a renamed"
+        edited.kind = .completed
+        edited.date = Date(timeIntervalSinceNow: -86_400)
+        edited.tags = ["Work", "work", "Gym"]
+        store.updateEvent(edited)
+        let saved = store.events.first { $0.id == edited.id }!
+        XCTAssertEqual(saved.taskTitle, "a renamed")
+        XCTAssertEqual(saved.kind, .completed)
+        XCTAssertEqual(saved.tags, ["Work", "Gym"])                 // known tag reused, new one created
+        XCTAssertTrue(store.tags.contains("Gym"))
+        XCTAssertEqual(store.tasks.map(\.title), ["a", "b"])       // tasks untouched
+
+        store.deleteEvents([edited.id])
+        XCTAssertFalse(store.events.contains { $0.id == edited.id })
+        store.clearHistory()
+        XCTAssertTrue(store.events.isEmpty)
+        XCTAssertEqual(store.tasks.count, 2)
+        XCTAssertTrue(TaskStore(fileURL: fileURL).events.isEmpty)    // an empty log isn't backfilled again
+    }
+
+    func testCompletedCountsTodayAndThisWeek() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        cal.firstWeekday = 1   // weeks start Sunday
+        let at = { (s: String) in ISO8601DateFormatter().date(from: s)! }
+        let now = at("2026-10-21T15:00:00Z")   // a Wednesday
+        let events = [
+            ActivityEvent(date: at("2026-10-21T09:00:00Z"), kind: .completed, taskTitle: "today"),
+            ActivityEvent(date: at("2026-10-21T10:00:00Z"), kind: .added, taskTitle: "not a completion"),
+            ActivityEvent(date: at("2026-10-19T09:00:00Z"), kind: .completed, taskTitle: "monday"),
+            ActivityEvent(date: at("2026-10-17T09:00:00Z"), kind: .completed, taskTitle: "last saturday"),
+        ]
+        let counts = completedCounts(events, now: now, calendar: cal)
+        XCTAssertEqual(counts.today, 1)
+        XCTAssertEqual(counts.week, 2)
     }
 }

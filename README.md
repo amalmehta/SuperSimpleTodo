@@ -11,7 +11,7 @@ A very simple Mac checklist: one list, priorities shown by color, optional #tags
   <img src="docs/images/activity.png" width="380" alt="Activity tab: actions per day as stacked bars, with a timeline below">
 </p>
 
-Type `Run 5k #fitness !!` → a Medium-priority task tagged Fitness.
+Type `Run 5k #fitness !!` → a Medium-priority task tagged Fitness. Click a tag to filter, double-click to rename, ⌘Z to undo.
 
 | Circle | Priority | Type at the end |
 |---|---|---|
