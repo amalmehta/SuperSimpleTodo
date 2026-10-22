@@ -67,7 +67,7 @@ Example: `Finish report #work !!! @fri`
 - **Next steps:**
   - A task with a link shows **↗ Open <site>** under its title. Click it to open the page.
   - Add, change or remove a link with right-click ▸ **Add Link…** / **Edit Link…** / **Remove Link**. There, a bare `site.com/page` works too.
-  - Tasks without a link show **✦ Ask Claude how to start** when you rest the pointer on them or select them. It opens a new chat at claude.ai with the task, and its deadline if it has one, already typed in. Nothing is sent until you click; you press send in Claude yourself.
+  - Tasks without a link show **✦ Ask Claude how to start** when you rest the pointer on them or select them. It opens a new chat in the Claude desktop app, or at claude.ai in your browser if the app isn't installed, with the task (and its deadline, if any) already typed in. Nothing is sent until you click; you press send in Claude yourself.
   - Right-click ▸ **Ask Claude How to Start** does the same for any task.
 - A task with a deadline shows "Today", "Tomorrow", a weekday within the next week, or a date. Past deadlines on open tasks show a red "Overdue". Deadlines don't change the order. With several selected: **Tick or Untick** and **Delete**.
 - Click a tag label to show only tasks with that tag. Click × in the "Showing" bar to show everything again.

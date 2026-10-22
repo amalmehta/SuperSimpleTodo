@@ -382,7 +382,8 @@ struct TaskRow: View {
                     Link(destination: NextStep.claudeURL(for: task)) {
                         Label("Ask Claude how to start", systemImage: "sparkle")
                     }
-                    .help("Opens a new Claude chat about this task")
+                    .help(NextStep.claudeAppInstalled ? "Opens a new chat about this task in the Claude app"
+                                                      : "Opens a new Claude chat about this task in your browser")
                     .nextStepStyle()
                     .transition(.opacity)
                 }
@@ -657,15 +658,21 @@ enum NextStep {
         return "Open \(host)"
     }
 
-    /// A claude.ai link that starts a new chat asking for help with the task. Nothing is sent until
-    /// it's clicked.
-    static func claudeURL(for task: TaskItem) -> URL {
+    /// True when the Claude desktop app is installed to handle claude:// links.
+    static var claudeAppInstalled: Bool {
+        NSWorkspace.shared.urlForApplication(toOpen: URL(string: "claude://claude.ai/new")!) != nil
+    }
+
+    /// A link that starts a new Claude chat with a message about the task already typed in. It opens
+    /// in the Claude app when installed (claude://claude.ai/new?q=…), otherwise claude.ai in the
+    /// browser. Nothing is sent until you press send.
+    static func claudeURL(for task: TaskItem, inApp: Bool = claudeAppInstalled) -> URL {
         var prompt = "I want to get this done: \u{201C}\(task.title)\u{201D}."
         if let deadline = task.deadline {
             prompt += " It's due \(deadline.formatted(date: .long, time: .omitted))."
         }
         prompt += " What's the first concrete step, and can you guide me through it?"
-        var parts = URLComponents(string: "https://claude.ai/new")!
+        var parts = URLComponents(string: inApp ? "claude://claude.ai/new" : "https://claude.ai/new")!
         parts.queryItems = [URLQueryItem(name: "q", value: prompt)]
         return parts.url!
     }

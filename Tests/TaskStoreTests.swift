@@ -455,7 +455,9 @@ final class TaskStoreTests: XCTestCase {
         XCTAssertEqual(NextStep.linkLabel(URL(string: "https://www.toyotafinancial.com/x")!), "Open toyotafinancial.com")
         var task = TaskItem(title: "File taxes & receipts")
         task.deadline = Calendar.current.date(from: DateComponents(year: 2027, month: 4, day: 15))
-        let url = NextStep.claudeURL(for: task)
+        XCTAssertEqual(NextStep.claudeURL(for: task, inApp: false).scheme, "https")
+        let url = NextStep.claudeURL(for: task, inApp: true)
+        XCTAssertEqual(url.scheme, "claude")              // the Claude desktop app's link
         XCTAssertEqual(url.host(), "claude.ai")
         XCTAssertEqual(url.path(), "/new")
         let prompt = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false)?

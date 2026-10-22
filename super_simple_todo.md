@@ -75,7 +75,7 @@ Asked and answered (2026-10-21, next steps):
 - "For relevant tasks provide a next step underneath, like the link to the thing or a link to a Claude session; don't overcomplicate it." Source: your own links plus an "Ask Claude" link (no API). Visibility: a task's link always shows; Ask Claude appears on hover or selection.
 
 Decided without asking (2026-10-21, next steps):
-- Ask Claude opens https://claude.ai/new?q=<prompt> with the task title, deadline and a request for the first concrete step; nothing is sent until clicked.
+- Ask Claude opens a new chat with the task title, deadline and a request for the first concrete step; nothing is sent until clicked. Changed 2026-10-21 at the owner's request: it opens in the Claude desktop app (claude://claude.ai/new?q=…), falling back to claude.ai in the browser when the app isn't installed.
 - Links typed into a task need https:// or www. (so emails and plain words like "example.com" stay in the title); Add Link… also accepts a bare domain.
 - A short hover delay (~0.45 s) before Ask Claude shows, so rows don't flicker.
 - tools/screenshots.sh now launches the test copy in the background (open -g): bringing it to the front once captured the owner's keystrokes.
@@ -128,6 +128,7 @@ Decided without asking (sections, superseded 2026-10-21):
 
 CHANGELOG:
 
+- 2026-10-21 — Ask Claude now opens a new chat in the Claude desktop app instead of the browser (browser only if the app isn't installed)
 - 2026-10-21 — next steps: task links ("↗ Open site") and "✦ Ask Claude how to start" (claude.ai prefilled) under tasks; right-click Add/Edit/Remove Link; screenshot script no longer takes focus; 34 unit tests
 - 2026-10-21 — friendlier look (warm background, greeting + progress ring, card rows, empty states, tick animation, all-done celebration); deadlines (@day, right-click ▸ Deadline, Overdue label); Calendar tab; 31 unit tests
 - 2026-10-21 — added selection and keys (⌫, Space, Return), rename, tag filter, undo/redo, menu shortcuts, done tasks at the bottom, completed today/this week, editable and clearable history, unreadable-file backup, tools/install.sh and tools/screenshots.sh; fixed day headers hiding timeline rows; 25 unit tests
