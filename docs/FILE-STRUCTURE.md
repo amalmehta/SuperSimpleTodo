@@ -18,12 +18,15 @@
 │   ├── KeyboardControl.swift     Arrow-key and after-delete selection (ListNavigation), the shortcut list for Settings
 │   ├── SettingsView.swift        Settings: Hide done tasks, Tags list, History (Clear History…), Keyboard Shortcuts
 │   ├── TaskStore.swift           All data changes (tasks, tags, history) with undo; parsing #tags and !; loading, unreadable-file backup, saving
+│   ├── Backup.swift              The versioned export file: encoding, checked decoding, error messages
+│   ├── BackupPanels.swift        File ▸ Export… and Import…: save and open panels, Merge or Replace question, alerts
 │   ├── TaskItem.swift            A task and the Priority levels
 │   ├── ActivityEvent.swift       A logged action, the per-day counts behind the chart, today/this-week counts
 │   └── Assets.xcassets/          App icon at every Mac size
 ├── Tests/
 │   ├── TaskStoreTests.swift      38 unit tests for the store
 │   ├── TagFilterTests.swift      8 tests: the #word being typed, ranking by use, matching, accepting, filtering
+│   ├── BackupTests.swift         11 tests: export/import round trip incl. Activity data, merge dedupe, undo, file format, errors
 │   ├── KeyboardControlTests.swift 16 tests: arrow keys, selection after changes, Space/⌫/priority with undo, VoiceOver text
 │   └── Fixtures/SectionsVersion/ Tasks.json, Sections.json and Activity.json as the sections version saved them, for the upgrade tests
 ├── tools/
