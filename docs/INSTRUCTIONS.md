@@ -75,11 +75,18 @@ Example: `Finish report #work !!! @fri`
 - The list shows open tasks first, sorted High → None and then by the order you added them. Done tasks sit at the bottom.
 - **⌘Z** undoes the last change and **⇧⌘Z** redoes it. That includes deletes, Clear Done, ticks, renames, tag changes and history edits.
 
-**Shortcuts:**
-- ⌘N: new task
-- ⌘1 / ⌘2 / ⌘3: Tasks / Calendar / Activity tab
+**Shortcuts** (also listed in Settings ▸ Keyboard Shortcuts):
+- ⌘N: new task (jumps to the add field)
+- ↓ in the add field: into the list. ↑ / ↓: move the selection; ↑ on the first task goes back to the add field
+- Space: tick or untick the selected tasks
+- Return: rename the selected task (Esc stops), or go to the add field when nothing is selected
+- ⌫: delete the selected tasks (⌘Z brings them back)
+- ⌘1 / ⌘2 / ⌘3: Low / Medium / High priority for the selected tasks; ⌘0: no priority
+- ⌥⌘1 / ⌥⌘2 / ⌥⌘3: Tasks / Calendar / Activity tab
 - ⇧⌘⌫: Clear Done
 - ⌘,: Settings
+
+**VoiceOver:** each task reads as its title, then done or not done, priority, tags, deadline and link. Its actions (VO-⌘-Space) tick it, rename it, open its next step or filter by a tag.
 
 **Calendar tab:**
 - **Month grid:** each day shows up to three dots in the priority colors of tasks due that day. Grey dots are done tasks. A small green check marks days you finished something.

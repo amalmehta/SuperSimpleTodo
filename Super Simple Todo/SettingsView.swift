@@ -69,6 +69,15 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Section("Keyboard Shortcuts") {
+                ForEach(ShortcutGuide.all, id: \.keys) { shortcut in
+                    LabeledContent(shortcut.action) {
+                        Text(shortcut.keys)
+                            .monospaced()
+                            .accessibilityLabel(Self.spoken(shortcut.keys))
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
         .confirmationDialog("Clear all history?", isPresented: $confirmClear) {
@@ -77,6 +86,14 @@ struct SettingsView: View {
             Text("This removes every entry from the Activity tab. Your tasks aren't affected.")
         }
         .frame(width: 380)
+    }
+
+    /// Key symbols spelled out for VoiceOver ("⇧⌘⌫" → "Shift Command Delete").
+    static func spoken(_ keys: String) -> String {
+        let names: [Character: String] = ["⌘": "Command ", "⇧": "Shift ", "⌥": "Option ", "⌫": "Delete",
+                                          "↑": "Up Arrow", "↓": "Down Arrow", "/": "or"]
+        return keys.map { names[$0] ?? String($0) }.joined()
+            .split(separator: " ").joined(separator: " ")
     }
 
     private func addTag() {

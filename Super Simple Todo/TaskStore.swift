@@ -131,10 +131,18 @@ final class TaskStore: ObservableObject {
     }
 
     func setPriority(_ priority: Priority, for id: UUID) {
-        guard let i = tasks.firstIndex(where: { $0.id == id }), tasks[i].priority != priority else { return }
+        setPriority(priority, for: Set([id]))
+    }
+
+    /// Sets the priority of several tasks as one undo step.
+    func setPriority(_ priority: Priority, for ids: Set<UUID>) {
+        let indices = tasks.indices.filter { ids.contains(tasks[$0].id) && tasks[$0].priority != priority }
+        guard !indices.isEmpty else { return }
         change("Change Priority") {
-            tasks[i].priority = priority
-            log(.priorityChanged, tasks[i], detail: priority.name)
+            for i in indices {
+                tasks[i].priority = priority
+                log(.priorityChanged, tasks[i], detail: priority.name)
+            }
         }
     }
 

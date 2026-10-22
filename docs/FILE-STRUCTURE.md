@@ -13,13 +13,15 @@
 │   ├── CalendarView.swift        Calendar tab: month grid with deadline dots, the selected day's due and finished tasks
 │   ├── Theme.swift               Warm background and card colors for light and dark mode
 │   ├── ActivityView.swift        Activity tab: summary line, daily chart, legend, hover tooltip, editable timeline, history editor
-│   ├── SettingsView.swift        Settings: Hide done tasks, Tags list, History (Clear History…)
+│   ├── KeyboardControl.swift     Arrow-key and after-delete selection (ListNavigation), the shortcut list for Settings
+│   ├── SettingsView.swift        Settings: Hide done tasks, Tags list, History (Clear History…), Keyboard Shortcuts
 │   ├── TaskStore.swift           All data changes (tasks, tags, history) with undo; parsing #tags and !; loading, unreadable-file backup, saving
 │   ├── TaskItem.swift            A task and the Priority levels
 │   ├── ActivityEvent.swift       A logged action, the per-day counts behind the chart, today/this-week counts
 │   └── Assets.xcassets/          App icon at every Mac size
 ├── Tests/
-│   └── TaskStoreTests.swift      34 unit tests for the store
+│   ├── TaskStoreTests.swift      34 unit tests for the store
+│   └── KeyboardControlTests.swift 16 tests: arrow keys, selection after changes, Space/⌫/priority with undo, VoiceOver text
 ├── tools/
 │   ├── MakeIcon.swift            Draws the 1024 px app icon
 │   ├── install.sh                Builds a Release copy and installs it in /Applications

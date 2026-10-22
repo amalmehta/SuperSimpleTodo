@@ -13,7 +13,7 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $tab) {
-            TasksView().tabItem { Text("Tasks") }.tag("tasks")
+            TasksView(isActive: tab == "tasks").tabItem { Text("Tasks") }.tag("tasks")
             CalendarView().tabItem { Text("Calendar") }.tag("calendar")
             ActivityView().tabItem { Text("Activity") }.tag("activity")
         }
@@ -28,10 +28,13 @@ struct ContentView: View {
 }
 
 struct TasksView: View {
+    /// False while another tab is showing, so menu shortcuts don't change tasks you can't see.
+    var isActive = true
     @EnvironmentObject private var store: TaskStore
     @AppStorage("hideDoneTasks") private var hideDoneTasks = false
     @State private var newTitle = ""
     @FocusState private var inputFocused: Bool
+    @FocusState private var listFocused: Bool
     @State private var selection = Set<UUID>()
     @State private var tagFilter: String?
     /// The task being renamed in place, and its text.
@@ -63,10 +66,10 @@ struct TasksView: View {
                 .padding(.top, 14)
                 .padding(.bottom, 10)
 
-            AddTaskField(text: $newTitle, focused: $inputFocused) {
+            AddTaskField(text: $newTitle, focused: $inputFocused, onSubmit: {
                 store.add(newTitle)
                 newTitle = ""
-            }
+            }, onMoveDown: { move(.down) })
             .padding(.horizontal, 16)
 
             PriorityKey()
@@ -160,6 +163,14 @@ struct TasksView: View {
         }
         .onAppear { inputFocused = true }
         .onReceive(NotificationCenter.default.publisher(for: .newTask)) { _ in inputFocused = true }
+        .onReceive(NotificationCenter.default.publisher(for: .setPriority)) { note in
+            guard isActive, let priority = note.object as? Priority else { return }
+            guard !selection.isEmpty else { return NSSound.beep() }
+            store.setPriority(priority, for: selection)
+        }
+        .onChange(of: visibleTasks.map(\.id)) { old, new in
+            selection = ListNavigation.reconcile(selection, old: old, new: new)
+        }
         .onChange(of: store.tags) { if let tag = tagFilter, !store.tags.contains(tag) { tagFilter = nil } }
         .alert("New Tag", isPresented: Binding(get: { tagTarget != nil }, set: { if !$0 { tagTarget = nil } })) {
             TextField("Name", text: $newTagName)
@@ -192,12 +203,27 @@ struct TasksView: View {
         withAnimation(reduceMotion ? nil : .spring(duration: 0.35, bounce: 0.2)) { store.toggle(ids) }
     }
 
+    /// ↑ / ↓ from the list or the add field.
+    private func move(_ direction: ListNavigation.Direction) {
+        switch ListNavigation.move(direction, from: selection, in: visibleTasks.map(\.id)) {
+        case .select(let id):
+            selection = [id]
+            listFocused = true
+        case .addField:
+            selection = []
+            inputFocused = true
+        case .none:
+            break
+        }
+    }
+
     private var list: some View {
         List(selection: $selection) {
             ForEach(visibleTasks) { task in
                 TaskRow(task: task,
                         isSelected: selection.contains(task.id),
                         onToggle: { toggle([task.id]) },
+                        onRename: { beginEdit(task.id) },
                         onTagTap: { tag in tagFilter = (tagFilter == tag ? nil : tag) },
                         editor: editingID == task.id ? AnyView(editor) : nil)
                     .listRowSeparator(.hidden)
@@ -214,6 +240,7 @@ struct TasksView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .focused($listFocused)
         .contextMenu(forSelectionType: UUID.self) { ids in
             if ids.count == 1, let task = store.tasks.first(where: { $0.id == ids.first }) {
                 menu(for: task)
@@ -231,8 +258,24 @@ struct TasksView: View {
             return .handled
         }
         .onKeyPress(.return) {
-            guard editingID == nil, selection.count == 1, let id = selection.first else { return .ignored }
-            beginEdit(id)
+            guard editingID == nil else { return .ignored }
+            if selection.isEmpty {
+                inputFocused = true
+            } else if selection.count == 1, let id = selection.first {
+                beginEdit(id)
+            } else {
+                return .ignored
+            }
+            return .handled
+        }
+        .onKeyPress(.upArrow) {
+            guard editingID == nil else { return .ignored }
+            move(.up)
+            return .handled
+        }
+        .onKeyPress(.downArrow) {
+            guard editingID == nil else { return .ignored }
+            move(.down)
             return .handled
         }
     }
@@ -241,8 +284,8 @@ struct TasksView: View {
         TextField("Title", text: $editText)
             .textFieldStyle(.plain)
             .focused($editFocused)
-            .onSubmit(commitEdit)
-            .onExitCommand { editingID = nil }
+            .onSubmit { commitEdit(); listFocused = true }
+            .onExitCommand { editingID = nil; listFocused = true }
             .onChange(of: editFocused) { if !editFocused { commitEdit() } }
     }
 
@@ -341,6 +384,7 @@ struct TaskRow: View {
     let task: TaskItem
     var isSelected = false
     let onToggle: () -> Void
+    var onRename: (() -> Void)?
     var onTagTap: ((String) -> Void)?
     /// Shown instead of the title while renaming.
     var editor: AnyView?
@@ -400,6 +444,26 @@ struct TaskRow: View {
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 4)
+        // VoiceOver reads one card as "Title, Not done. High priority. Tags: …", with the
+        // circle, rename, link and tag clicks as actions. While renaming, the field stays reachable.
+        .accessibilityElement(children: editor == nil ? .ignore : .contain)
+        .accessibilityLabel(task.title)
+        .accessibilityValue(Self.accessibilityValue(for: task))
+        .accessibilityAction { onToggle() }
+        .accessibilityAction(named: task.isDone ? "Mark Not Done" : "Mark Done") { onToggle() }
+        .accessibilityActions {
+            if let onRename { Button("Rename", action: onRename) }
+            if let link = task.link {
+                Button(NextStep.linkLabel(link)) { NSWorkspace.shared.open(link) }
+            } else if !task.isDone {
+                Button("Ask Claude How to Start") { NSWorkspace.shared.open(NextStep.claudeURL(for: task)) }
+            }
+            if let onTagTap {
+                ForEach(task.tags, id: \.self) { tag in
+                    Button("Show Only \(tag) Tasks") { onTagTap(tag) }
+                }
+            }
+        }
         .animation(.easeOut(duration: 0.2), value: showsClaude)
         .onHover { inside in
             hoverTask?.cancel()
@@ -412,6 +476,18 @@ struct TaskRow: View {
                 hoverSettled = false
             }
         }
+    }
+
+    /// What VoiceOver says after the title: done state, priority, tags, deadline and next step.
+    static func accessibilityValue(for task: TaskItem, now: Date = Date(), calendar: Calendar = .current) -> String {
+        var parts = [task.isDone ? "Done" : "Not done",
+                     task.priority == .none ? "No priority" : "\(task.priority.name) priority"]
+        if !task.tags.isEmpty { parts.append("Tags: \(task.tags.joined(separator: ", "))") }
+        if let deadline = task.deadline {
+            parts.append(DeadlineLabel.spokenText(for: deadline, isDone: task.isDone, now: now, calendar: calendar))
+        }
+        if let link = task.link { parts.append("Next step: \(NextStep.linkLabel(link))") }
+        return parts.joined(separator: ". ")
     }
 
     private var title: some View {
@@ -532,6 +608,8 @@ struct AddTaskField: View {
     @Binding var text: String
     var focused: FocusState<Bool>.Binding
     let onSubmit: () -> Void
+    /// ↓ in the field moves into the list.
+    var onMoveDown: () -> Void = {}
 
     var body: some View {
         HStack(spacing: 8) {
@@ -542,6 +620,7 @@ struct AddTaskField: View {
                 .textFieldStyle(.plain)
                 .focused(focused)
                 .onSubmit(onSubmit)
+                .onKeyPress(.downArrow) { onMoveDown(); return .handled }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
@@ -594,6 +673,12 @@ struct DeadlineLabel: View {
         }
     }
 
+    /// "Due October 30, 2026", or "Overdue, was due …" for an open task past its day.
+    static func spokenText(for deadline: Date, isDone: Bool, now: Date = Date(), calendar: Calendar = .current) -> String {
+        let date = deadline.formatted(date: .long, time: .omitted)
+        return !isDone && deadline < calendar.startOfDay(for: now) ? "Overdue, was due \(date)" : "Due \(date)"
+    }
+
     private var isOverdue: Bool { !isDone && deadline < Calendar.current.startOfDay(for: Date()) }
     private var isToday: Bool { Calendar.current.isDateInToday(deadline) }
 
@@ -603,8 +688,7 @@ struct DeadlineLabel: View {
             .font(.caption.weight(isOverdue || isToday ? .semibold : .regular))
             .foregroundStyle(isDone ? AnyShapeStyle(.tertiary) : isOverdue ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
             .help("Due \(deadline.formatted(date: .complete, time: .omitted))")
-            .accessibilityLabel(isOverdue ? "Overdue, was due \(deadline.formatted(date: .long, time: .omitted))"
-                                          : "Due \(deadline.formatted(date: .long, time: .omitted))")
+            .accessibilityLabel(Self.spokenText(for: deadline, isDone: isDone))
     }
 }
 

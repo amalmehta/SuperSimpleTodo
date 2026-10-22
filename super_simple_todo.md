@@ -88,7 +88,7 @@ Asked and answered (2026-10-21, friendlier look, deadlines and calendar):
 Decided without asking (2026-10-21, look, deadlines and calendar):
 - Deadlines are stored as plain "yyyy-MM-dd" days so they don't move across time zones; @weekday includes today; past month-day dates mean next year.
 - Setting a deadline isn't an Activity event (keeps the chart's five colors).
-- Tabs are Tasks | Calendar | Activity (⌘1/⌘2/⌘3); animations respect Reduce Motion.
+- Tabs are Tasks | Calendar | Activity (⌘1/⌘2/⌘3, moved to ⌥⌘1/⌥⌘2/⌥⌘3 on 2026-10-21 for priority keys); animations respect Reduce Motion.
 - The footer's "N of M done" moved into the greeting's progress line and ring.
 
 Asked and answered (2026-10-21, improvements):
@@ -156,3 +156,10 @@ CHANGELOG:
 - 2026-10-02 — added a DELIVERABLES field after CONTEXT
 - 2026-10-02 — added meta-instruction: every project has a system design doc at docs/SYSTEM-DESIGN.md
 - 2026-10-05 — added meta-instruction: applications include a settings button or tab
+
+Decided without asking (2026-10-21, full keyboard control):
+- ⌘1/⌘2/⌘3 set Low/Medium/High priority (matching !, !!, !!!), ⌘0 clears it; tab switching moved to ⌥⌘1/⌥⌘2/⌥⌘3.
+- "Return in an empty field" read as Return with no task selected: it jumps to the add field. ↓ in the add field enters the list; ↑ on the first task returns.
+- Deleting or hiding the selected tasks selects the next task (or the previous one at the end).
+- The shortcut list lives in Settings ▸ Keyboard Shortcuts.
+- VoiceOver reads each card as one element with tick, rename, next-step and tag actions.
