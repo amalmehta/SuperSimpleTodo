@@ -17,6 +17,9 @@ flowchart LR
     TV -->|add / rename / toggle / setPriority / setDeadline / toggleTag / delete / clearDone| TS[TaskStore<br/>ObservableObject]
     AV -->|updateEvent / deleteEvents| TS
     SV -->|tags, clearHistory| TS
+    App -->|"File ▸ Export… / Import…"| BP[BackupPanels<br/>NSSavePanel / NSOpenPanel]
+    BP -->|"backup() / importBackup(_:mode:)"| TS
+    BP <-->|"Backup.encoded() / Backup.decode"| BF[(export .json)]
     TS <-->|"snapshot per change (⌘Z / ⇧⌘Z)"| UM[Window UndoManager]
     TS -->|"@Published tasks (sorted) + tags"| TV
     TS -->|"@Published events"| AV
@@ -33,7 +36,7 @@ flowchart LR
 
 | Component | File | Job |
 |---|---|---|
-| `SuperSimpleTodoApp` | `Super Simple Todo/SuperSimpleTodoApp.swift` | App entry point. Owns the one `TaskStore`, declares the main window, the Settings scene (⌘,) and the menu commands: File ▸ New Task (⌘N), View ▸ Tasks/Calendar/Activity (⌥⌘1/⌥⌘2/⌥⌘3), Tasks ▸ Priority (⌘0–⌘3, for the selected tasks) and Clear Done (⇧⌘⌫). The commands reach the views through notifications. |
+| `SuperSimpleTodoApp` | `Super Simple Todo/SuperSimpleTodoApp.swift` | App entry point. Owns the one `TaskStore`, declares the main window, the Settings scene (⌘,) and the menu commands: File ▸ New Task (⌘N), Export… and Import…, View ▸ Tasks/Calendar/Activity (⌥⌘1/⌥⌘2/⌥⌘3), Tasks ▸ Priority (⌘0–⌘3, for the selected tasks) and Clear Done (⇧⌘⌫). The commands reach the views through notifications. |
 | `ContentView` | `Super Simple Todo/ContentView.swift` | The "Tasks \| Calendar \| Activity" tab switcher. It hands the window's `UndoManager` to the store. |
 | `TasksView`, `GreetingHeader`, `ProgressRing`, `AddTaskField`, `TaskRow`, `DeadlineLabel`, `DeadlinePicker`, `TagChips`, `PriorityKey`, `EmptyState` | `Super Simple Todo/ContentView.swift` | The list screen: a time-of-day greeting with a friendly progress line and a ring; a rounded add field; a quiet color key; `#` tag suggestions under the add field (`TagSuggestions`); an optional "Showing [tag ×]" bar with a removable `FilterToken`; and selectable card rows (colored tick circle that springs into a check, title or rename field, deadline label, clickable tags). Kind empty states cover a new list, all done, and an empty filter. A brief "All done — nice work!" appears when the last task is ticked. Right-click ▸ Deadline offers Today, Tomorrow, In a Week, Pick a Date… (a calendar sheet) and Remove. Keys: ⌫ deletes, Space ticks, Return renames (or goes to the add field with nothing selected), ↑↓ move (↓ from the add field enters the list, ↑ from the top leaves it). The selection follows the list: when the selected tasks are deleted or hidden, the next task is selected (`ListNavigation` in `KeyboardControl.swift`). Each card is one VoiceOver element: title, then done state, priority, tags, deadline and link, with tick, rename, next-step and tag actions. Right-click works on one task (Rename, Priority ▸, Tags ▸, Delete) or several (Tick or Untick, Delete). Double-click renames. Footer: "N of M done", Clear Done, Settings gear. |
 | `TagFilter`, `TagAutocomplete` | `Super Simple Todo/TagFilter.swift` | The list's tag filter (toggle, clear, forget a deleted tag, apply with Hide done) and the add field's autocomplete: finding the `#word` being typed, counting each tag's uses, ranking (most used first, then tag order), matching (name starts first, then a later word) and replacing the `#word` with the chosen tag. No SwiftUI, so it is unit-tested directly. |
@@ -42,6 +45,8 @@ flowchart LR
 | `ActivityView`, `EventRow`, `EventEditor`, `ActivityLegend` | `Super Simple Todo/ActivityView.swift` | A "Completed today · this week" line, a stacked bar chart of actions per day (7, 14 or 30 days), a legend, a hover tooltip per day, and a selectable timeline of every action, newest first, under plain day-header rows. ⌫ deletes selected entries; right-click or double-click opens `EventEditor` (task title, action, new priority, date and time, tags). |
 | `SettingsView` | `Super Simple Todo/SettingsView.swift` | All preferences in one place: **Hide done tasks**, the **Tags** list (add, rename, delete, drag to reorder) and **History** (entry count, Clear History… with a confirmation). |
 | `TaskStore` | `Super Simple Todo/TaskStore.swift` | The only place tasks, tags and history change. Every change runs through `change(_:_:)`, which snapshots the state, applies the change, registers an undo step and saves. It also parses `#tag` and `!` markers, sorts and filters, and records one event per action. |
+| `Backup`, `BackupError`, `ImportMode`, `ImportSummary` | `Super Simple Todo/Backup.swift` | The export file: its format name and version, encoding (dates with milliseconds) and checked decoding, which refuses invalid JSON, other JSON, files from a newer version and damaged files with a message naming the problem (e.g. "tasks[0].title is missing."). No AppKit, so it is unit-tested directly. |
+| `BackupPanels` | `Super Simple Todo/BackupPanels.swift` | File ▸ Export… (an `NSSavePanel`, default name "Super Simple Todo <date>.json") and File ▸ Import… (an `NSOpenPanel` for JSON, then a Merge / Replace / Cancel alert, then a summary of what was added and skipped). Errors appear as alerts and import nothing. |
 | `TaskItem`, `Priority` | `Super Simple Todo/TaskItem.swift` | One task (id, title, done flag, priority, tags, created date) and the four priority levels. Files from the sections version are upgraded by `TaskStore` (see **Upgrading from sections**). |
 | App icon | `Super Simple Todo/Assets.xcassets/AppIcon.appiconset`, drawn by `tools/MakeIcon.swift` | A white checklist tile with a ticked red task, then orange and blue ones, echoing the priority colors. The script draws the 1024 px master with Core Graphics; the 16–512 pt sizes are scaled from it with `sips`. |
 | `ActivityEvent`, `dailyCounts`, `completedCounts` | `Super Simple Todo/ActivityEvent.swift` | One logged action (date, kind, task title, optional detail, tags at the time; all editable except the id), the per-day counts the chart draws, and the today and this-week completion counts. |
@@ -104,6 +109,10 @@ The Activity chart uses a separate, validated palette, one color per action: Add
 - **Activity tab:** `dailyCounts` buckets events by local calendar day for the chosen range, and `completedCounts` gives the summary line (the week starts on your system's first weekday). Hovering a bar shows that day's counts. The timeline below lists every event.
 - **Editing history:** select timeline entries and press ⌫ to delete them, or right-click or double-click one to edit it. Settings ▸ History ▸ Clear History… deletes the whole log. History edits never touch tasks, and new tags typed in an entry are added to the tag list.
 - **Hide done tasks:** a Settings toggle. It only filters the view.
+- **Export:** File ▸ Export… writes `TaskStore.backup()` (tasks, tags, history) to the chosen file. Nothing in the store changes.
+- **Import:** File ▸ Import… reads the chosen file with `Backup.decode`; any error stops here with an alert. Then it asks **Merge** or **Replace**. `TaskStore.importBackup` applies it as one undo step ("Undo Import") and saves:
+  - **Replace** swaps all tasks, tags and history for the file's, in the file's order.
+  - **Merge** keeps everything here. A task or history entry whose `id` is already here is skipped, so your version wins and importing the same file twice adds nothing. New tasks go after the current ones, history is re-sorted by date, and the file's tags are added after yours, matched ignoring case (a task's `fitness` becomes your `Fitness`).
 - **Launch:** `TaskStore` reads both files. If `Activity.json` doesn't exist yet, it fills in one **Added** event per task from its saved creation date. That's the only history available from before tracking started.
 
 ## Upgrading from sections
@@ -124,6 +133,41 @@ The sections version (2026-10-11) saved an optional `"section"` on each task and
 - Preferences: UserDefaults for `com.amalmehta.SuperSimpleTodo`: `hideDoneTasks`, `activityDays`.
 - Sample data for trying the app: launch with `--args -TasksFile /path/Tasks.json`. `Activity.json` and `Tags.json` are then read from the same folder, and your real data is never touched. Add `-StartTab activity` to open on the Activity tab. Both options were used for the README screenshots.
 - Nothing leaves the Mac. No network, no accounts, no sync.
+
+## Export file format
+
+File ▸ Export… writes one pretty-printed UTF-8 JSON object with sorted keys:
+
+```json
+{
+  "activity" : [
+    { "date" : "2026-10-21T08:30:00.250Z", "id" : "7F96…", "kind" : "completed",
+      "tags" : [ "Work" ], "taskTitle" : "Write report" }
+  ],
+  "exportedAt" : "2026-10-21T09:00:00.000Z",
+  "format" : "super-simple-todo",
+  "tags" : [ "Daily", "Fitness", "Work", "Study" ],
+  "tasks" : [
+    { "createdAt" : "2026-10-20T08:00:00.000Z", "deadline" : "2026-10-24", "id" : "6F96…", "isDone" : true,
+      "link" : "https://example.com", "priority" : 2, "tags" : [ "Work" ], "title" : "Write report" }
+  ],
+  "version" : 1
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `format` | Always `"super-simple-todo"`. Anything else (including a bare `Tasks.json` array) is refused as "isn't a Super Simple Todo export". |
+| `version` | The format version, a whole number. This build writes and reads `1` (`Backup.currentVersion`). A higher number is refused as "exported by a newer version", before the rest of the file is read, so a future format can change anything else. |
+| `exportedAt` | When the file was written. Informational; import ignores it. |
+| `tags` | Known tag names in display order, the same as `Tags.json`. |
+| `tasks` | Tasks in the order added, each as in `Tasks.json`: `id` (UUID), `title`, `isDone`, `priority` (0 none, 1 low, 2 medium, 3 high), `tags`, `deadline` (a plain `yyyy-MM-dd` day, omitted when unset), `link` (omitted when unset) and `createdAt`. IDs must be unique. |
+| `activity` | The Activity tab's history, as in `Activity.json`: `id`, `date`, `kind` (`added`, `completed`, `deleted`, `uncompleted`, `priorityChanged`), `taskTitle`, `detail` (the new priority's name, for `priorityChanged`) and `tags` at the time. IDs must be unique. |
+
+- **Completion timestamps** are the `date` of `completed` entries in `activity`; a task itself only stores `isDone`. This is what the Activity chart, the "Completed today · this week" line and the calendar's finished list are drawn from.
+- **Dates** are ISO 8601 in UTC with milliseconds. Import also accepts them without milliseconds, so a hand-written file works. The app's own files keep dates to the second, so an export of a relaunched app round-trips exactly.
+- **Damaged files** (invalid JSON, a missing or non-numeric `version`, a missing or wrongly typed field, an unknown `kind` or `priority`, a bad date, a repeated ID) are refused with an alert naming the first problem, such as "tasks[0].title is missing." Nothing is imported.
+- **Changing the format:** raise `Backup.currentVersion`, keep reading every older version (convert it on import), and note the change here.
 
 ## Key decisions and trade-offs
 
@@ -147,6 +191,7 @@ The sections version (2026-10-11) saved an optional `"section"` on each task and
 - **The store takes a file URL.** Tests use temporary files, and `-TasksFile` points the app at sample data.
 - **The icon is drawn in code, not a design file.** It can be regenerated and diffed, needs no design app, and stays in step with the priority colors. The trade-off is that tweaking it means editing the script. It uses the classic rounded-square asset catalog icon rather than a macOS 26 Icon Composer (`.icon`) file, so it doesn't pick up the new glass and tinted styles.
 - **XcodeGen (`project.yml`) generates the Xcode project.** Run `xcodegen generate` after adding a file. The generated `.xcodeproj` is committed.
+- **Export is one versioned file, separate from the live files.** One file is easier to move and email than three, and the `format`/`version` header lets the app refuse what it can't read instead of guessing. Merge dedupes by ID and keeps the local copy, so local edits are never overwritten by an older export; use Replace to restore a backup exactly.
 - **No feedback tab.** Left out at the owner's request (2026-10-06).
 
 ## Testing
@@ -163,6 +208,7 @@ The sections version (2026-10-11) saved an optional `"section"` on each task and
 - Next steps: links pulled from typed text (`https://`, `www.`, trailing punctuation) while email addresses and bare domains stay in the title; Add, Edit and Remove Link with undo, saving, and rejecting non-addresses; links set by rename; the "Open site" label; and the Ask Claude URL (`claude://` for the app, `https://` otherwise, path /new with a `q` prompt that keeps `&` and includes the deadline).
 - Every action is logged and saved; history is filled in from creation dates; daily counts group by day and drop days outside the range.
 - Tag filter and suggestions (`Tests/TagFilterTests.swift`, 8 tests): the `#word` being typed (including just `#` and `#deep-wo`, but not after a space, inside "C#" or "#1"); typed and accepted tags parsing back to the same name; use counts and ranking with ties in tag order; matching ignoring case, name starts before later words, `-` as a space, and the limit; accepting a suggestion; and the filter's toggle, switch, clear, forgetting a deleted tag, and applying it with Hide done.
+- Export and import (`Tests/BackupTests.swift`, 11 tests): a store with tags (one unused, one renamed), priorities, a deadline, a link, completions on two days, a priority change, a deletion and an edited history entry is exported and imported into an empty store, and the two are equal: tasks, tags, history and the Activity tab's numbers (daily counts, today and this week, each day's completions), also after reopening; merging into an empty store keeps the starter tags first; exporting the imported store gives the same bytes; merging skips tasks and history already present by ID and keeps local edits; tags match ignoring case; import is one undo step; the file's keys, version, date and deadline formats; hand-written whole-second dates; and the errors for invalid JSON, a missing or string `version`, a missing field, a bad date, repeated IDs, other JSON, and a newer version.
 - Keyboard (`Tests/KeyboardControlTests.swift`, 16 tests): ↑/↓ with nothing, one or several selected, at both ends and leaving for the add field; the selection kept, or moved to the next or previous task, after deletes, re-sorting and ticking with done hidden; Space on a mixed selection, ⌫, and priority for several tasks, each one undo step; and the VoiceOver text (done state, priority, tags, overdue deadline, link) and spoken key names.
 - Tags: a fresh store gets the four starters; `#tag` parsing and on-the-fly creation (several per task, case matching, duplicates dropped, `#deep-work`, "#1" and "C#" ignored, tag-only input); the list stays one priority-sorted list; toggle, rename (refuses a taken name) and delete update tasks; events record tags.
 - Upgrading from sections, against files saved by the sections version (`Tests/Fixtures/SectionsVersion`): each section becomes the same tag with task order, priorities and done state kept, "Other" gets no tag, `Sections.json`'s order (empty sections included) becomes the tag order, and logged actions keep their section (even a deleted one) as a tag; the upgrade saves at once without `section`, renames `Sections.json` (dated if an earlier backup has the name), clears `collapsedSections` and reloads identically; case and spaces are matched and blank sections skipped; files already in the tags format aren't rewritten.
@@ -180,7 +226,7 @@ Manual checks in the running app:
 - 2026-10-21, `tools/screenshots.sh` on sample data: done tasks at the bottom, the "Completed today · this week" line, and plain day headers in the timeline.
 - 2026-10-21, `tools/screenshots.sh`: the new look (greeting, ring, cards), deadline labels including a red Overdue, and the Calendar tab's dots, today marker and day list.
 - 2026-10-21, `tools/screenshots.sh`: "↗ Open site" next-step links under tasks.
-- Not yet checked by hand: Ask Claude appearing on hover or selection and opening claude.ai, the Add Link prompt, the tick animation and the "All done" celebration, the deadline picker sheet, month switching and swiping, the keyboard keys in the window (⌫, Space, Return, ↑↓, ⌘0–⌘3, ⌥⌘1–3), VoiceOver reading the cards, renaming in place, tag filtering, the `#` suggestions (Tab and Return in the field, the list floating over the tasks), Esc clearing the filter, the right-click menus, the history editor, Clear History, undo in the app, and the hover tooltip. These need clicking, and screen access was declined. Their store-side logic is covered by the tests above.
+- Not yet checked by hand: File ▸ Export… and Import… (the panels, the Merge or Replace alert and the error and summary alerts), Ask Claude appearing on hover or selection and opening claude.ai, the Add Link prompt, the tick animation and the "All done" celebration, the deadline picker sheet, month switching and swiping, the keyboard keys in the window (⌫, Space, Return, ↑↓, ⌘0–⌘3, ⌥⌘1–3), VoiceOver reading the cards, renaming in place, tag filtering, the `#` suggestions (Tab and Return in the field, the list floating over the tasks), Esc clearing the filter, the right-click menus, the history editor, Clear History, undo in the app, and the hover tooltip. These need clicking, and screen access was declined. Their store-side logic is covered by the tests above.
 
 ## Known limits
 
