@@ -54,7 +54,7 @@ final class TaskStore: ObservableObject {
 
     /// The tasks the list shows: sorted, optionally without done ones, optionally only one tag's.
     func visibleTasks(hideDone: Bool, tag: String?) -> [TaskItem] {
-        sortedTasks.filter { (!hideDone || !$0.isDone) && (tag == nil || $0.tags.contains(tag!)) }
+        TagFilter(tag: tag).apply(to: sortedTasks, hideDone: hideDone)
     }
 
     // MARK: Tasks
@@ -362,7 +362,7 @@ final class TaskStore: ObservableObject {
     }
 
     /// "#deep-work" -> "Deep work".
-    static func tagName(fromTag tag: String) -> String {
+    nonisolated static func tagName(fromTag tag: String) -> String {
         let spaced = tag.replacingOccurrences(of: "-", with: " ").replacingOccurrences(of: "_", with: " ")
         return spaced.prefix(1).uppercased() + spaced.dropFirst()
     }

@@ -36,7 +36,7 @@ struct TasksView: View {
     @FocusState private var inputFocused: Bool
     @FocusState private var listFocused: Bool
     @State private var selection = Set<UUID>()
-    @State private var tagFilter: String?
+    @State private var tagFilter = TagFilter()
     /// The task being renamed in place, and its text.
     @State private var editingID: UUID?
     @State private var editText = ""
@@ -52,7 +52,7 @@ struct TasksView: View {
     @Environment(\.openURL) private var openURL
 
     private var visibleTasks: [TaskItem] {
-        store.visibleTasks(hideDone: hideDoneTasks, tag: tagFilter)
+        tagFilter.apply(to: store.sortedTasks, hideDone: hideDoneTasks)
     }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -66,29 +66,22 @@ struct TasksView: View {
                 .padding(.top, 14)
                 .padding(.bottom, 10)
 
-            AddTaskField(text: $newTitle, focused: $inputFocused, onSubmit: {
+            AddTaskField(text: $newTitle, focused: $inputFocused, tags: store.tags, tasks: store.tasks, onSubmit: {
                 store.add(newTitle)
                 newTitle = ""
-            }, onMoveDown: { move(.down) })
+            }, onMoveDown: { move(.down) }, onEscape: { tagFilter.clear() })
             .padding(.horizontal, 16)
+            .zIndex(1)   // the tag suggestions float over the list below
 
             PriorityKey()
                 .padding(.horizontal, 18)
                 .padding(.top, 6)
                 .padding(.bottom, 4)
 
-            if let tagFilter {
+            if let tag = tagFilter.tag {
                 HStack(spacing: 6) {
                     Text("Showing")
-                    TagChips(tags: [tagFilter])
-                    Button {
-                        self.tagFilter = nil
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Show all tasks")
-                    .help("Show all tasks")
+                    FilterToken(tag: tag) { tagFilter.clear() }
                     Spacer()
                 }
                 .font(.callout)
@@ -171,7 +164,7 @@ struct TasksView: View {
         .onChange(of: visibleTasks.map(\.id)) { old, new in
             selection = ListNavigation.reconcile(selection, old: old, new: new)
         }
-        .onChange(of: store.tags) { if let tag = tagFilter, !store.tags.contains(tag) { tagFilter = nil } }
+        .onChange(of: store.tags) { tagFilter.keepOnly(knownTags: store.tags) }
         .alert("New Tag", isPresented: Binding(get: { tagTarget != nil }, set: { if !$0 { tagTarget = nil } })) {
             TextField("Name", text: $newTagName)
             Button("Add") {
@@ -189,7 +182,7 @@ struct TasksView: View {
         if store.tasks.isEmpty {
             EmptyState(symbol: "leaf", title: "A fresh start",
                        message: "Type a task above and press Return.\nTry \u{201C}Water the plants #daily !\u{201D}")
-        } else if tagFilter != nil {
+        } else if tagFilter.isActive {
             EmptyState(symbol: "tag", title: "Nothing here yet",
                        message: "No open tasks with this tag.")
         } else {
@@ -224,7 +217,7 @@ struct TasksView: View {
                         isSelected: selection.contains(task.id),
                         onToggle: { toggle([task.id]) },
                         onRename: { beginEdit(task.id) },
-                        onTagTap: { tag in tagFilter = (tagFilter == tag ? nil : tag) },
+                        onTagTap: { tag in tagFilter.toggle(tag) },
                         editor: editingID == task.id ? AnyView(editor) : nil)
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets(top: 3, leading: 12, bottom: 3, trailing: 12))
@@ -276,6 +269,11 @@ struct TasksView: View {
         .onKeyPress(.downArrow) {
             guard editingID == nil else { return .ignored }
             move(.down)
+            return .handled
+        }
+        .onKeyPress(.escape) {
+            guard editingID == nil, tagFilter.isActive else { return .ignored }
+            tagFilter.clear()
             return .handled
         }
     }
@@ -377,6 +375,36 @@ struct TagChips: View {
             .padding(.vertical, 1)
             .background(Color.secondary.opacity(0.12), in: Capsule())
             .lineLimit(1)
+    }
+}
+
+/// The tag the list is filtered to, as a removable token.
+struct FilterToken: View {
+    let tag: String
+    let onRemove: () -> Void
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "tag.fill").imageScale(.small)
+            Text(tag).lineLimit(1)
+            Button(action: onRemove) {
+                Image(systemName: "xmark.circle.fill")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Show all tasks (Esc)")
+            .accessibilityLabel("Remove \(tag) filter")
+        }
+        .font(.callout.weight(.medium))
+        .foregroundStyle(Color.accentColor)
+        .padding(.leading, 8)
+        .padding(.trailing, 4)
+        .padding(.vertical, 2)
+        .background(Color.accentColor.opacity(0.12), in: Capsule())
+        .overlay(Capsule().stroke(Color.accentColor.opacity(0.35)))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Showing only \(tag) tasks")
+        .accessibilityAction(named: "Show All Tasks", onRemove)
     }
 }
 
@@ -603,13 +631,35 @@ struct ProgressRing: View {
     }
 }
 
-/// The rounded "Add a task" field with a plus icon.
+/// The rounded "Add a task" field with a plus icon. Typing "#" offers known tags below it.
 struct AddTaskField: View {
     @Binding var text: String
     var focused: FocusState<Bool>.Binding
+    /// Known tags and the tasks that use them, for the "#" suggestions.
+    var tags: [String] = []
+    var tasks: [TaskItem] = []
     let onSubmit: () -> Void
     /// ↓ in the field moves into the list.
     var onMoveDown: () -> Void = {}
+    /// Esc with no suggestions showing.
+    var onEscape: () -> Void = {}
+    @State private var highlighted = 0
+    /// The text when Esc closed the suggestions; they stay closed until it changes.
+    @State private var dismissedText: String?
+
+    private var query: String? {
+        guard focused.wrappedValue, dismissedText != text else { return nil }
+        return TagAutocomplete.activeQuery(in: text)?.query
+    }
+
+    private var suggestions: [String] {
+        query.map { TagAutocomplete.suggestions(for: $0, tags: tags, tasks: tasks) } ?? []
+    }
+
+    private var current: String? {
+        let list = suggestions
+        return list.isEmpty ? nil : list[min(highlighted, list.count - 1)]
+    }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -620,7 +670,31 @@ struct AddTaskField: View {
                 .textFieldStyle(.plain)
                 .focused(focused)
                 .onSubmit(onSubmit)
-                .onKeyPress(.downArrow) { onMoveDown(); return .handled }
+                .onKeyPress(.downArrow) {
+                    if suggestions.isEmpty { onMoveDown() } else { highlighted = min(highlighted + 1, suggestions.count - 1) }
+                    return .handled
+                }
+                .onKeyPress(.upArrow) {
+                    guard !suggestions.isEmpty else { return .ignored }
+                    highlighted = max(highlighted - 1, 0)
+                    return .handled
+                }
+                .onKeyPress(.tab) {
+                    guard let current else { return .ignored }
+                    accept(current)
+                    return .handled
+                }
+                .onKeyPress(.return) {
+                    // A tag already typed in full leaves Return to add the task.
+                    guard let current, let query, !TagAutocomplete.isTyped(current, as: query) else { return .ignored }
+                    accept(current)
+                    return .handled
+                }
+                .onKeyPress(.escape) {
+                    if suggestions.isEmpty { onEscape() } else { dismissedText = text }
+                    return .handled
+                }
+                .onChange(of: text) { highlighted = 0 }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
@@ -628,6 +702,66 @@ struct AddTaskField: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius)
             .stroke(focused.wrappedValue ? Color.accentColor.opacity(0.6) : Theme.cardStroke))
         .help("Add #tag to tag it (a new #name makes a new tag), !, !! or !!! for Low, Medium or High priority, @today, @fri or @oct30 for a deadline, and paste a link to make it the next step")
+        .overlay(alignment: .bottomLeading) {
+            if !suggestions.isEmpty {
+                TagSuggestions(tags: suggestions, counts: TagAutocomplete.useCounts(in: tasks),
+                               highlighted: min(highlighted, suggestions.count - 1), onPick: accept)
+                    .padding(.leading, 30)
+                    .alignmentGuide(.bottom) { $0[.top] - 4 }
+            }
+        }
+    }
+
+    private func accept(_ tag: String) {
+        text = TagAutocomplete.accept(tag, in: text)
+        dismissedText = nil
+    }
+}
+
+/// The "#" autocomplete: matching tags, most used first, with how many tasks use each.
+struct TagSuggestions: View {
+    let tags: [String]
+    let counts: [String: Int]
+    let highlighted: Int
+    let onPick: (String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(tags.enumerated()), id: \.element) { index, tag in
+                Button { onPick(tag) } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "number").imageScale(.small).foregroundStyle(.secondary)
+                        Text(tag).lineLimit(1)
+                        Spacer(minLength: 16)
+                        Text("\(counts[tag] ?? 0)")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .contentShape(Rectangle())
+                    .background(index == highlighted ? Color.accentColor.opacity(0.18) : .clear,
+                                in: RoundedRectangle(cornerRadius: 5))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tag)
+                .accessibilityValue("\(counts[tag] ?? 0) tasks")
+                .accessibilityAddTraits(index == highlighted ? .isSelected : [])
+            }
+            Text("Tab or Return to add · Esc to close")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 8)
+                .padding(.top, 4)
+        }
+        .font(.callout)
+        .padding(5)
+        .frame(minWidth: 180, maxWidth: 240, alignment: .leading)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.cardStroke))
+        .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Tag suggestions")
     }
 }
 

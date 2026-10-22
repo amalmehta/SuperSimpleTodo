@@ -8,11 +8,13 @@
 ├── super_simple_todo.md          The project brief: instructions, decisions and changelog
 ├── Super Simple Todo/            The app's source
 │   ├── SuperSimpleTodoApp.swift  App entry: main window, Settings window, menu shortcuts
-│   ├── ContentView.swift         The three tabs; Tasks tab: greeting and progress ring, add field, cards (selection, keys, rename, tag filter),
+│   ├── ContentView.swift         The three tabs; Tasks tab: greeting and progress ring, add field, cards (selection, keys, rename, tag chips and filter token),
+│   │                             # tag suggestions under the add field,
 │   │                             deadline labels and picker, next-step links (NextStep), empty states, celebration, right-click menus
 │   ├── CalendarView.swift        Calendar tab: month grid with deadline dots, the selected day's due and finished tasks
 │   ├── Theme.swift               Warm background and card colors for light and dark mode
 │   ├── ActivityView.swift        Activity tab: summary line, daily chart, legend, hover tooltip, editable timeline, history editor
+│   ├── TagFilter.swift           The tag filter (TagFilter) and the # autocomplete's parsing, ranking and matching (TagAutocomplete)
 │   ├── KeyboardControl.swift     Arrow-key and after-delete selection (ListNavigation), the shortcut list for Settings
 │   ├── SettingsView.swift        Settings: Hide done tasks, Tags list, History (Clear History…), Keyboard Shortcuts
 │   ├── TaskStore.swift           All data changes (tasks, tags, history) with undo; parsing #tags and !; loading, unreadable-file backup, saving
@@ -21,6 +23,7 @@
 │   └── Assets.xcassets/          App icon at every Mac size
 ├── Tests/
 │   ├── TaskStoreTests.swift      38 unit tests for the store
+│   ├── TagFilterTests.swift      8 tests: the #word being typed, ranking by use, matching, accepting, filtering
 │   ├── KeyboardControlTests.swift 16 tests: arrow keys, selection after changes, Space/⌫/priority with undo, VoiceOver text
 │   └── Fixtures/SectionsVersion/ Tasks.json, Sections.json and Activity.json as the sections version saved them, for the upgrade tests
 ├── tools/

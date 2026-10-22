@@ -12,7 +12,7 @@ A friendly, very simple Mac checklist: one list, priorities shown by color, opti
   <img src="docs/images/activity.png" width="270" alt="Activity tab: actions per day as stacked bars, with a timeline below">
 </p>
 
-Type `Run 5k #fitness !! @fri` → a Medium-priority task tagged Fitness, due Friday. Paste a link into a task and it shows underneath as the next step; tasks without one offer **Ask Claude how to start**. Click a tag to filter, double-click to rename, ⌘Z to undo.
+Type `Run 5k #fitness !! @fri` → a Medium-priority task tagged Fitness, due Friday. Paste a link into a task and it shows underneath as the next step; tasks without one offer **Ask Claude how to start**. Type `#` to pick a tag, click a tag to filter (Esc clears it), double-click to rename, ⌘Z to undo.
 
 | Circle | Priority | Type at the end |
 |---|---|---|

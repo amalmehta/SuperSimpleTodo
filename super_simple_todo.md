@@ -133,8 +133,17 @@ Decided without asking (sections, superseded 2026-10-21):
 - Pasted line breaks in a task become spaces.
 - Ad-hoc code signing (runs on this Mac; not notarized).
 
+Decided without asking (2026-10-21, tag autocomplete and filter):
+- Suggestions appear as a small list floating under the add field rather than a separate popover window, so typing never loses focus; they show each tag's task count (open and done).
+- Ranking: most-used first, ties in the Settings tag order. Matching ignores case and treats "-" as a space; names that start with the typed text come before names with a later word that does ("#wo" → Work, then Deep work).
+- Accepting types the tag as "#deep-work " (with a space to keep typing). Return accepts only while it would change the text, so "Run #work" + Return still adds the task.
+- Suggestions follow the "#word" at the end of the text (SwiftUI's field doesn't report the cursor); Esc closes them until the text changes.
+- Esc clears the tag filter from the list or from the add field (when no suggestions are showing). Clicking another tag switches the filter; one tag at a time, as before.
+- The filter moved into its own type (TagFilter.swift), and TaskStore.visibleTasks uses it.
+
 CHANGELOG:
 
+- 2026-10-21 — "#" in the add field suggests tags (most used first, narrowed as you type, Tab or Return to accept, Esc to close); the tag filter shows as a removable token and Esc clears it; filter and autocomplete logic in TagFilter.swift; 62 unit tests
 - 2026-10-21 — sections data from earlier versions is now migrated to tags once on load (saved straight away, Sections.json kept as Sections.migrated.json, old collapsed-sections preference cleared); section handling removed from tasks and history; upgrade tests against a sections-version fixture; 54 unit tests (an earlier Sections.migrated.json gets a dated name instead of blocking the rename)
 - 2026-10-21 — Ask Claude now opens a new chat in the Claude desktop app instead of the browser (browser only if the app isn't installed)
 - 2026-10-21 — next steps: task links ("↗ Open site") and "✦ Ask Claude how to start" (claude.ai prefilled) under tasks; right-click Add/Edit/Remove Link; screenshot script no longer takes focus; 34 unit tests

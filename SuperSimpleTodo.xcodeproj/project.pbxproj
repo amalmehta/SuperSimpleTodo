@@ -7,10 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		272C8AD36D2B1A82F2B024E4 /* TagFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA18062DD439F42878E0F30 /* TagFilter.swift */; };
+		39E01B27BB98E2126C1091E7 /* Activity.json in Resources */ = {isa = PBXBuildFile; fileRef = FFFF8E00B1C14DF8D0AA7CD8 /* Activity.json */; };
 		42EDBABAC11D802FE3B10B1E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86F9FFBF8637E80591D36E53 /* ContentView.swift */; };
 		4D67932FC8F827C747B79456 /* SuperSimpleTodoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23E2A4DB495B241B6E245BDE /* SuperSimpleTodoApp.swift */; };
 		5147DE35BC6424A9E3EC42BB /* TaskStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9808950D578DA13F8A73D10E /* TaskStore.swift */; };
 		52726CA6CDA945DCA8C04F8A /* ActivityEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7586C6E06D71EE84F7287DCD /* ActivityEvent.swift */; };
+		6380DEFDD981F897E2DD36CC /* Sections.json in Resources */ = {isa = PBXBuildFile; fileRef = 2BDD13C0D740EB81D9C49777 /* Sections.json */; };
+		6BE93A6D7EF134BB4D524B54 /* Tasks.json in Resources */ = {isa = PBXBuildFile; fileRef = EF1F7A81E41291E0C2985D8E /* Tasks.json */; };
 		7741673805B4745E9698EE96 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 468031AAB8327D30F59723B9 /* Theme.swift */; };
 		7D79553163FE82B43969576D /* KeyboardControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = C515B68277FE9CF950BEDE18 /* KeyboardControl.swift */; };
 		83175DB434AB16781575BD5D /* TaskStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83E9C928D7617D53564A8163 /* TaskStoreTests.swift */; };
@@ -20,6 +24,7 @@
 		D5A4C194DFA3430EF48A0304 /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 150A6A94380C2BB5A3FF9802 /* CalendarView.swift */; };
 		D7DA1025F10AB266B64A30FC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0F548FED8B18C149003FD219 /* Assets.xcassets */; };
 		EA5C4F80F61986D8C4267A11 /* KeyboardControlTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBEC4CD155CD8438797D3900 /* KeyboardControlTests.swift */; };
+		FCDFADEF76740614FE19EE44 /* TagFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2AED407C49970A8E1E1D3DD /* TagFilterTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,6 +43,8 @@
 		18E11A4C039F19F736A56402 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		20DA89942E10BDA47779FAC5 /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityView.swift; sourceTree = "<group>"; };
 		23E2A4DB495B241B6E245BDE /* SuperSimpleTodoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuperSimpleTodoApp.swift; sourceTree = "<group>"; };
+		2BDD13C0D740EB81D9C49777 /* Sections.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Sections.json; sourceTree = "<group>"; };
+		3AA18062DD439F42878E0F30 /* TagFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagFilter.swift; sourceTree = "<group>"; };
 		468031AAB8327D30F59723B9 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		7586C6E06D71EE84F7287DCD /* ActivityEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityEvent.swift; sourceTree = "<group>"; };
 		83C7F8E5CC64A54784B00259 /* Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -45,9 +52,12 @@
 		86F9FFBF8637E80591D36E53 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		9808950D578DA13F8A73D10E /* TaskStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskStore.swift; sourceTree = "<group>"; };
 		C515B68277FE9CF950BEDE18 /* KeyboardControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardControl.swift; sourceTree = "<group>"; };
+		D2AED407C49970A8E1E1D3DD /* TagFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagFilterTests.swift; sourceTree = "<group>"; };
 		E269F73FC4DF3EA0914538BD /* TaskItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskItem.swift; sourceTree = "<group>"; };
 		EBEC4CD155CD8438797D3900 /* KeyboardControlTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardControlTests.swift; sourceTree = "<group>"; };
+		EF1F7A81E41291E0C2985D8E /* Tasks.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Tasks.json; sourceTree = "<group>"; };
 		F4C9209E4613E08CF06724A1 /* Super Simple Todo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Super Simple Todo.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		FFFF8E00B1C14DF8D0AA7CD8 /* Activity.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Activity.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -71,6 +81,7 @@
 				C515B68277FE9CF950BEDE18 /* KeyboardControl.swift */,
 				18E11A4C039F19F736A56402 /* SettingsView.swift */,
 				23E2A4DB495B241B6E245BDE /* SuperSimpleTodoApp.swift */,
+				3AA18062DD439F42878E0F30 /* TagFilter.swift */,
 				E269F73FC4DF3EA0914538BD /* TaskItem.swift */,
 				9808950D578DA13F8A73D10E /* TaskStore.swift */,
 				468031AAB8327D30F59723B9 /* Theme.swift */,
@@ -78,11 +89,21 @@
 			path = "Super Simple Todo";
 			sourceTree = "<group>";
 		};
+		450DEDD09BA72BE6EBED96B4 /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				B19A4518BD5CC9CF905FD8B7 /* SectionsVersion */,
+			);
+			path = Fixtures;
+			sourceTree = "<group>";
+		};
 		4C13D63E07628FAE319A6380 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
 				EBEC4CD155CD8438797D3900 /* KeyboardControlTests.swift */,
+				D2AED407C49970A8E1E1D3DD /* TagFilterTests.swift */,
 				83E9C928D7617D53564A8163 /* TaskStoreTests.swift */,
+				450DEDD09BA72BE6EBED96B4 /* Fixtures */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -94,6 +115,16 @@
 				83C7F8E5CC64A54784B00259 /* Tests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B19A4518BD5CC9CF905FD8B7 /* SectionsVersion */ = {
+			isa = PBXGroup;
+			children = (
+				FFFF8E00B1C14DF8D0AA7CD8 /* Activity.json */,
+				2BDD13C0D740EB81D9C49777 /* Sections.json */,
+				EF1F7A81E41291E0C2985D8E /* Tasks.json */,
+			);
+			path = SectionsVersion;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -122,6 +153,7 @@
 			buildConfigurationList = 2E9F20850A6AE3C7EE46A5F6 /* Build configuration list for PBXNativeTarget "Tests" */;
 			buildPhases = (
 				8234636D9D128F86E915F132 /* Sources */,
+				B10F7B3D2EED238D0680C0F1 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -175,6 +207,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B10F7B3D2EED238D0680C0F1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				39E01B27BB98E2126C1091E7 /* Activity.json in Resources */,
+				6380DEFDD981F897E2DD36CC /* Sections.json in Resources */,
+				6BE93A6D7EF134BB4D524B54 /* Tasks.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -189,6 +231,7 @@
 				7D79553163FE82B43969576D /* KeyboardControl.swift in Sources */,
 				C5E344FBE0E3A71D7EB9A62C /* SettingsView.swift in Sources */,
 				4D67932FC8F827C747B79456 /* SuperSimpleTodoApp.swift in Sources */,
+				272C8AD36D2B1A82F2B024E4 /* TagFilter.swift in Sources */,
 				BAF3342410FEB9E6AE36DD9B /* TaskItem.swift in Sources */,
 				5147DE35BC6424A9E3EC42BB /* TaskStore.swift in Sources */,
 				7741673805B4745E9698EE96 /* Theme.swift in Sources */,
@@ -200,6 +243,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EA5C4F80F61986D8C4267A11 /* KeyboardControlTests.swift in Sources */,
+				FCDFADEF76740614FE19EE44 /* TagFilterTests.swift in Sources */,
 				83175DB434AB16781575BD5D /* TaskStoreTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -29,7 +29,7 @@ xcodebuild -project SuperSimpleTodo.xcodeproj -scheme "Super Simple Todo" -deriv
 open "build/Build/Products/Debug/Super Simple Todo.app"
 ```
 
-Run the tests (34 unit tests):
+Run the tests (62 unit tests):
 
 ```bash
 xcodebuild -project SuperSimpleTodo.xcodeproj -scheme "Super Simple Todo" -derivedDataPath build test
@@ -70,7 +70,8 @@ Example: `Finish report #work !!! @fri`
   - Tasks without a link show **✦ Ask Claude how to start** when you rest the pointer on them or select them. It opens a new chat in the Claude desktop app, or at claude.ai in your browser if the app isn't installed, with the task (and its deadline, if any) already typed in. Nothing is sent until you click; you press send in Claude yourself.
   - Right-click ▸ **Ask Claude How to Start** does the same for any task.
 - A task with a deadline shows "Today", "Tomorrow", a weekday within the next week, or a date. Past deadlines on open tasks show a red "Overdue". Deadlines don't change the order. With several selected: **Tick or Untick** and **Delete**.
-- Click a tag label to show only tasks with that tag. Click × in the "Showing" bar to show everything again.
+- Type `#` in the add field to pick from your tags, most used first. Keep typing to narrow the list, ↑↓ to choose, Tab or Return to add it, Esc to close it.
+- Click a tag on a task to show only tasks with that tag. Click × on the "Showing" token, or press Esc, to show everything again.
 - **Clear Done** (or ⇧⌘⌫) removes every finished task.
 - The list shows open tasks first, sorted High → None and then by the order you added them. Done tasks sit at the bottom.
 - **⌘Z** undoes the last change and **⇧⌘Z** redoes it. That includes deletes, Clear Done, ticks, renames, tag changes and history edits.
@@ -81,6 +82,8 @@ Example: `Finish report #work !!! @fri`
 - Space: tick or untick the selected tasks
 - Return: rename the selected task (Esc stops), or go to the add field when nothing is selected
 - ⌫: delete the selected tasks (⌘Z brings them back)
+- #: tag suggestions in the add field (↑ ↓ to pick, Tab or Return to add)
+- Esc: close the tag suggestions, or clear the tag filter
 - ⌘1 / ⌘2 / ⌘3: Low / Medium / High priority for the selected tasks; ⌘0: no priority
 - ⌥⌘1 / ⌥⌘2 / ⌥⌘3: Tasks / Calendar / Activity tab
 - ⇧⌘⌫: Clear Done
