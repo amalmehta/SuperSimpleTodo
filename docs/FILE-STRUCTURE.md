@@ -20,7 +20,7 @@
 │   ├── ActivityEvent.swift       A logged action, the per-day counts behind the chart, today/this-week counts
 │   └── Assets.xcassets/          App icon at every Mac size
 ├── Tests/
-│   ├── TaskStoreTests.swift      37 unit tests for the store
+│   ├── TaskStoreTests.swift      38 unit tests for the store
 │   ├── KeyboardControlTests.swift 16 tests: arrow keys, selection after changes, Space/⌫/priority with undo, VoiceOver text
 │   └── Fixtures/SectionsVersion/ Tasks.json, Sections.json and Activity.json as the sections version saved them, for the upgrade tests
 ├── tools/

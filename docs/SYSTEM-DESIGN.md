@@ -110,7 +110,7 @@ The sections version (2026-10-11) saved an optional `"section"` on each task and
 - Each task's section becomes one tag of the same name, matched to the known tags ignoring case and spaces; a task in "Other" (no section) or with a blank section gets no tag. Task order is unchanged.
 - `Sections.json`'s names, in order, become the tag list (empty sections included, the starter tags not added).
 - Each logged action's section becomes its tag, even for a section deleted since; such a name isn't added to the tag list.
-- The result is saved straight away, so `Tasks.json` and `Activity.json` no longer contain `section` and a `Tags.json` exists. `Sections.json` is renamed `Sections.migrated.json` (kept, not deleted), and the old `collapsedSections` preference is removed.
+- The result is saved straight away, so `Tasks.json` and `Activity.json` no longer contain `section` and a `Tags.json` exists. `Sections.json` is renamed `Sections.migrated.json` (kept, not deleted; dated if that name is already taken), and the old `collapsedSections` preference is removed.
 - Later launches find nothing to migrate and don't rewrite the files.
 
 ## Where data lives
@@ -149,7 +149,7 @@ The sections version (2026-10-11) saved an optional `"section"` on each task and
 
 ## Testing
 
-`Tests/TaskStoreTests.swift` has 37 XCTest unit tests:
+`Tests/TaskStoreTests.swift` has 38 XCTest unit tests:
 - Adding: trims spaces, ignores blanks, flattens line breaks, and turns a trailing `!`/`!!`/`!!!` into a priority.
 - Tick/untick and the done count; delete and Clear Done.
 - Priority sorting, done tasks sinking below open ones, filtering by tag and hiding done tasks.
@@ -162,7 +162,7 @@ The sections version (2026-10-11) saved an optional `"section"` on each task and
 - Every action is logged and saved; history is filled in from creation dates; daily counts group by day and drop days outside the range.
 - Keyboard (`Tests/KeyboardControlTests.swift`, 16 tests): ↑/↓ with nothing, one or several selected, at both ends and leaving for the add field; the selection kept, or moved to the next or previous task, after deletes, re-sorting and ticking with done hidden; Space on a mixed selection, ⌫, and priority for several tasks, each one undo step; and the VoiceOver text (done state, priority, tags, overdue deadline, link) and spoken key names.
 - Tags: a fresh store gets the four starters; `#tag` parsing and on-the-fly creation (several per task, case matching, duplicates dropped, `#deep-work`, "#1" and "C#" ignored, tag-only input); the list stays one priority-sorted list; toggle, rename (refuses a taken name) and delete update tasks; events record tags.
-- Upgrading from sections, against files saved by the sections version (`Tests/Fixtures/SectionsVersion`): each section becomes the same tag with task order, priorities and done state kept, "Other" gets no tag, `Sections.json`'s order (empty sections included) becomes the tag order, and logged actions keep their section (even a deleted one) as a tag; the upgrade saves at once without `section`, renames `Sections.json`, clears `collapsedSections` and reloads identically; case and spaces are matched and blank sections skipped; files already in the tags format aren't rewritten.
+- Upgrading from sections, against files saved by the sections version (`Tests/Fixtures/SectionsVersion`): each section becomes the same tag with task order, priorities and done state kept, "Other" gets no tag, `Sections.json`'s order (empty sections included) becomes the tag order, and logged actions keep their section (even a deleted one) as a tag; the upgrade saves at once without `section`, renames `Sections.json` (dated if an earlier backup has the name), clears `collapsedSections` and reloads identically; case and spaces are matched and blank sections skipped; files already in the tags format aren't rewritten.
 
 Run them with:
 

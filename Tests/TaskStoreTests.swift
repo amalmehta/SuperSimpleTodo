@@ -244,6 +244,22 @@ final class TaskStoreTests: XCTestCase {
         XCTAssertEqual(store.events.map(\.taskTitle), ["Squats", "Stretch"])
     }
 
+    func testSectionsMigrationKeepsAnEarlierBackup() throws {
+        let dir = try installSectionsFixture()
+        let earlier = dir.appendingPathComponent("Sections.migrated.json")
+        try Data(#"["Old"]"#.utf8).write(to: earlier)
+        _ = TaskStore(fileURL: fileURL)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("Sections.json").path))
+        XCTAssertEqual(try Data(contentsOf: earlier), Data(#"["Old"]"#.utf8))
+        let backups = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+            .filter { $0.hasPrefix("Sections.migrated-") }
+        XCTAssertEqual(backups.count, 1)
+        // With Sections.json gone, the next launch has nothing to migrate and doesn't rewrite the files.
+        let saved = try Data(contentsOf: fileURL)
+        _ = TaskStore(fileURL: fileURL)
+        XCTAssertEqual(try Data(contentsOf: fileURL), saved)
+    }
+
     func testTagsVersionFilesAreNotMigrated() throws {
         let store = TaskStore(fileURL: fileURL)
         store.add("Plan week #work")

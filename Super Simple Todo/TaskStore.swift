@@ -470,9 +470,14 @@ final class TaskStore: ObservableObject {
             if !events[i].tags.contains(tag) { events[i].tags.append(tag) }
         }
         if FileManager.default.fileExists(atPath: legacySectionsURL.path) {
-            try? FileManager.default.moveItem(
-                at: legacySectionsURL,
-                to: legacySectionsURL.deletingPathExtension().appendingPathExtension("migrated.json"))
+            // If an earlier Sections.migrated.json is in the way, add the date so neither is lost
+            // and Sections.json still moves (otherwise every launch would migrate again).
+            var backup = legacySectionsURL.deletingPathExtension().appendingPathExtension("migrated.json")
+            if FileManager.default.fileExists(atPath: backup.path) {
+                let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+                backup = legacySectionsURL.deletingPathExtension().appendingPathExtension("migrated-\(stamp).json")
+            }
+            try? FileManager.default.moveItem(at: legacySectionsURL, to: backup)
         }
         // The sections version remembered which sections were collapsed; nothing reads it now.
         UserDefaults.standard.removeObject(forKey: "collapsedSections")
