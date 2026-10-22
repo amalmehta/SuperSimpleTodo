@@ -15,11 +15,6 @@ struct SuperSimpleTodoApp: App {
                 Button("New Task") { NotificationCenter.default.post(name: .newTask, object: nil) }
                     .keyboardShortcut("n")
             }
-            CommandGroup(after: .newItem) {
-                Divider()
-                Button("Export…") { BackupPanels.export(store) }
-                Button("Import…") { BackupPanels.importFile(into: store) }
-            }
             CommandGroup(before: .toolbar) {
                 Button("Tasks") { NotificationCenter.default.post(name: .showTab, object: "tasks") }
                     .keyboardShortcut("1", modifiers: [.command, .option])

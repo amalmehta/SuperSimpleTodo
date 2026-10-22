@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0EF63B7DB5C2395701CD8155 /* Backup.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCC2BE36943CB901B54122BE /* Backup.swift */; };
 		272C8AD36D2B1A82F2B024E4 /* TagFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA18062DD439F42878E0F30 /* TagFilter.swift */; };
 		39E01B27BB98E2126C1091E7 /* Activity.json in Resources */ = {isa = PBXBuildFile; fileRef = FFFF8E00B1C14DF8D0AA7CD8 /* Activity.json */; };
 		42EDBABAC11D802FE3B10B1E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86F9FFBF8637E80591D36E53 /* ContentView.swift */; };
@@ -20,10 +19,8 @@
 		7D79553163FE82B43969576D /* KeyboardControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = C515B68277FE9CF950BEDE18 /* KeyboardControl.swift */; };
 		83175DB434AB16781575BD5D /* TaskStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83E9C928D7617D53564A8163 /* TaskStoreTests.swift */; };
 		88E6D1856BD255E9AEA7CFFE /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DA89942E10BDA47779FAC5 /* ActivityView.swift */; };
-		AF92B7DD1C5EE876366E9702 /* BackupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64A53F8697EB3AC3483C3BF1 /* BackupTests.swift */; };
 		BAF3342410FEB9E6AE36DD9B /* TaskItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = E269F73FC4DF3EA0914538BD /* TaskItem.swift */; };
 		C5E344FBE0E3A71D7EB9A62C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18E11A4C039F19F736A56402 /* SettingsView.swift */; };
-		D041756E1DFAE61E978981B0 /* BackupPanels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9873FE9FD67A478ADE25A12A /* BackupPanels.swift */; };
 		D5A4C194DFA3430EF48A0304 /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 150A6A94380C2BB5A3FF9802 /* CalendarView.swift */; };
 		D7DA1025F10AB266B64A30FC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0F548FED8B18C149003FD219 /* Assets.xcassets */; };
 		EA5C4F80F61986D8C4267A11 /* KeyboardControlTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBEC4CD155CD8438797D3900 /* KeyboardControlTests.swift */; };
@@ -49,14 +46,11 @@
 		2BDD13C0D740EB81D9C49777 /* Sections.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Sections.json; sourceTree = "<group>"; };
 		3AA18062DD439F42878E0F30 /* TagFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagFilter.swift; sourceTree = "<group>"; };
 		468031AAB8327D30F59723B9 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
-		64A53F8697EB3AC3483C3BF1 /* BackupTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupTests.swift; sourceTree = "<group>"; };
 		7586C6E06D71EE84F7287DCD /* ActivityEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityEvent.swift; sourceTree = "<group>"; };
 		83C7F8E5CC64A54784B00259 /* Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		83E9C928D7617D53564A8163 /* TaskStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskStoreTests.swift; sourceTree = "<group>"; };
 		86F9FFBF8637E80591D36E53 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		9808950D578DA13F8A73D10E /* TaskStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskStore.swift; sourceTree = "<group>"; };
-		9873FE9FD67A478ADE25A12A /* BackupPanels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupPanels.swift; sourceTree = "<group>"; };
-		BCC2BE36943CB901B54122BE /* Backup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Backup.swift; sourceTree = "<group>"; };
 		C515B68277FE9CF950BEDE18 /* KeyboardControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardControl.swift; sourceTree = "<group>"; };
 		D2AED407C49970A8E1E1D3DD /* TagFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagFilterTests.swift; sourceTree = "<group>"; };
 		E269F73FC4DF3EA0914538BD /* TaskItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskItem.swift; sourceTree = "<group>"; };
@@ -82,8 +76,6 @@
 				7586C6E06D71EE84F7287DCD /* ActivityEvent.swift */,
 				20DA89942E10BDA47779FAC5 /* ActivityView.swift */,
 				0F548FED8B18C149003FD219 /* Assets.xcassets */,
-				BCC2BE36943CB901B54122BE /* Backup.swift */,
-				9873FE9FD67A478ADE25A12A /* BackupPanels.swift */,
 				150A6A94380C2BB5A3FF9802 /* CalendarView.swift */,
 				86F9FFBF8637E80591D36E53 /* ContentView.swift */,
 				C515B68277FE9CF950BEDE18 /* KeyboardControl.swift */,
@@ -108,7 +100,6 @@
 		4C13D63E07628FAE319A6380 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
-				64A53F8697EB3AC3483C3BF1 /* BackupTests.swift */,
 				EBEC4CD155CD8438797D3900 /* KeyboardControlTests.swift */,
 				D2AED407C49970A8E1E1D3DD /* TagFilterTests.swift */,
 				83E9C928D7617D53564A8163 /* TaskStoreTests.swift */,
@@ -235,8 +226,6 @@
 			files = (
 				52726CA6CDA945DCA8C04F8A /* ActivityEvent.swift in Sources */,
 				88E6D1856BD255E9AEA7CFFE /* ActivityView.swift in Sources */,
-				0EF63B7DB5C2395701CD8155 /* Backup.swift in Sources */,
-				D041756E1DFAE61E978981B0 /* BackupPanels.swift in Sources */,
 				D5A4C194DFA3430EF48A0304 /* CalendarView.swift in Sources */,
 				42EDBABAC11D802FE3B10B1E /* ContentView.swift in Sources */,
 				7D79553163FE82B43969576D /* KeyboardControl.swift in Sources */,
@@ -253,7 +242,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AF92B7DD1C5EE876366E9702 /* BackupTests.swift in Sources */,
 				EA5C4F80F61986D8C4267A11 /* KeyboardControlTests.swift in Sources */,
 				FCDFADEF76740614FE19EE44 /* TagFilterTests.swift in Sources */,
 				83175DB434AB16781575BD5D /* TaskStoreTests.swift in Sources */,
