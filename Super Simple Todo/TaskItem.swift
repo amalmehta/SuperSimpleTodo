@@ -44,18 +44,16 @@ struct TaskItem: Identifiable, Codable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case id, title, isDone, priority, tags, deadline, link, createdAt
-        case section   // older files: one section per task, now read as a single tag
     }
 
-    // Older files may lack "priority" and "tags", or have a "section" instead of tags.
+    // Older files may lack "priority" and "tags" (sections-version files are migrated by `TaskStore`).
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
         title = try c.decode(String.self, forKey: .title)
         isDone = try c.decode(Bool.self, forKey: .isDone)
         priority = try c.decodeIfPresent(Priority.self, forKey: .priority) ?? .none
-        let section = try c.decodeIfPresent(String.self, forKey: .section)
-        tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? (section.map { [$0] } ?? [])
+        tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
         deadline = try c.decodeIfPresent(String.self, forKey: .deadline).flatMap(Self.dayFormatter.date(from:))
         link = try c.decodeIfPresent(String.self, forKey: .link).flatMap(URL.init(string:))
         createdAt = try c.decode(Date.self, forKey: .createdAt)

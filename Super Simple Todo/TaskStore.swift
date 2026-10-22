@@ -18,7 +18,7 @@ final class TaskStore: ObservableObject {
     private var tagsURL: URL {
         fileURL.deletingLastPathComponent().appendingPathComponent("Tags.json")
     }
-    /// Written by the sections version of the app; read once to carry its names over as tags.
+    /// Written by the sections version of the app; read once by `migrateSections` to carry its names over as tags.
     private var legacySectionsURL: URL {
         fileURL.deletingLastPathComponent().appendingPathComponent("Sections.json")
     }
@@ -416,20 +416,67 @@ final class TaskStore: ObservableObject {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         tasks = read([TaskItem].self, from: fileURL, decoder) ?? []
-        if let saved = read([String].self, from: tagsURL, decoder) ?? read([String].self, from: legacySectionsURL, decoder) {
-            tags = saved
-        } else {
-            tags = Self.starterTags
-        }
-        // A tag used on a task but missing from the list (e.g. a hand-edited file) is added to it.
-        for name in tasks.flatMap(\.tags) where !tags.contains(name) { tags.append(name) }
-        if let saved = read([ActivityEvent].self, from: activityURL, decoder) {
-            events = saved
+        let savedTags = read([String].self, from: tagsURL, decoder)
+        tags = savedTags ?? Self.starterTags
+        let savedEvents = read([ActivityEvent].self, from: activityURL, decoder)
+        if let savedEvents {
+            events = savedEvents
         } else {
             // First launch with activity tracking: the only history we have is when tasks were added.
             events = tasks.sorted { $0.createdAt < $1.createdAt }
                 .map { ActivityEvent(date: $0.createdAt, kind: .added, taskTitle: $0.title) }
         }
+        let migrated = migrateSections(hasTagsFile: savedTags != nil, hasActivityFile: savedEvents != nil, decoder)
+        // A tag used on a task but missing from the list (e.g. a hand-edited file) is added to it.
+        for name in tasks.flatMap(\.tags) where !tags.contains(name) { tags.append(name) }
+        if migrated { save() }
+    }
+
+    /// The `"section"` key on tasks and logged actions saved by the sections version.
+    private struct LegacySection: Decodable {
+        var section: String?
+    }
+
+    /// One-time upgrade from the sections version, which saved an optional `"section"` on each task
+    /// and logged action, and the section names, in order, in Sections.json. Each section becomes the
+    /// tag of the same name (Sections.json's order becomes the tag order; task order is unchanged).
+    /// Returns true if anything was migrated; the caller then saves, so the files are in the tags
+    /// format from then on. Sections.json is renamed to Sections.migrated.json rather than deleted.
+    private func migrateSections(hasTagsFile: Bool, hasActivityFile: Bool, _ decoder: JSONDecoder) -> Bool {
+        func sections(in url: URL) -> [String?] {
+            guard let data = try? Data(contentsOf: url),
+                  let items = try? decoder.decode([LegacySection].self, from: data) else { return [] }
+            return items.map { item in
+                item.section.map { $0.trimmingCharacters(in: .whitespaces) }.flatMap { $0.isEmpty ? nil : $0 }
+            }
+        }
+        let hasSectionsFile = FileManager.default.fileExists(atPath: legacySectionsURL.path)
+        let names = hasTagsFile ? nil : read([String].self, from: legacySectionsURL, decoder)
+        let taskSections = sections(in: fileURL)
+        let eventSections = hasActivityFile ? sections(in: activityURL) : []
+        guard hasSectionsFile || (taskSections + eventSections).contains(where: { $0 != nil }) else { return false }
+
+        if let names {
+            tags = []
+            names.forEach { _ = ensureTag($0) }
+        }
+        for (i, section) in zip(tasks.indices, taskSections) {
+            if let section, let tag = ensureTag(section), !tasks[i].tags.contains(tag) { tasks[i].tags.append(tag) }
+        }
+        // A logged action keeps its section even if that section was deleted later, without adding it to the list.
+        for (i, section) in zip(events.indices, eventSections) {
+            guard let section else { continue }
+            let tag = tags.first { $0.caseInsensitiveCompare(section) == .orderedSame } ?? section
+            if !events[i].tags.contains(tag) { events[i].tags.append(tag) }
+        }
+        if FileManager.default.fileExists(atPath: legacySectionsURL.path) {
+            try? FileManager.default.moveItem(
+                at: legacySectionsURL,
+                to: legacySectionsURL.deletingPathExtension().appendingPathExtension("migrated.json"))
+        }
+        // The sections version remembered which sections were collapsed; nothing reads it now.
+        UserDefaults.standard.removeObject(forKey: "collapsedSections")
+        return true
     }
 
     /// Reads a JSON file. A file that exists but can't be read is renamed to

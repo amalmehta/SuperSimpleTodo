@@ -105,8 +105,15 @@ Decided without asking (2026-10-21, improvements):
 Decided without asking (2026-10-21):
 - A task can have several tags, shown as small grey labels after its title; the list stays one list sorted by priority.
 - Add tags by typing #name (every #word counts; new names create tags), or right-click ▸ Tags ▸ tick a tag / New Tag…; manage them in Settings ▸ Tags.
-- The four starter names (Daily, Fitness, Work, Study) carry over as suggested tags; any old section on a task becomes a tag.
+- The four starter names (Daily, Fitness, Work, Study) carry over as suggested tags; any old section on a task becomes a tag (see the upgrade decisions below).
 - Adding or removing a tag isn't an Activity event; no tag filter yet.
+
+Decided without asking (2026-10-21, upgrading from sections):
+- Saved sections data is migrated once, on the first launch: each task's section becomes the tag of the same name (matched ignoring case; "Other" and blank sections get no tag), keeping task order, priority and done state.
+- The old section list becomes the tag list in the same order, empty sections included; the starter tags aren't added on top.
+- Logged actions keep their old section as a tag, even one deleted since, without adding it back to the tag list.
+- The migrated files are saved straight away in the tags format. Sections.json is renamed Sections.migrated.json rather than deleted, and the leftover "collapsed sections" preference is removed.
+- No section code, Settings UI or strings remain; only the migration reads the old format.
 
 Decided without asking (sections, superseded 2026-10-21):
 - Section rename, delete and reorder live in Settings ▸ Sections (deleting moves tasks to Other).
@@ -128,6 +135,7 @@ Decided without asking (sections, superseded 2026-10-21):
 
 CHANGELOG:
 
+- 2026-10-21 — sections data from earlier versions is now migrated to tags once on load (saved straight away, Sections.json kept as Sections.migrated.json, old collapsed-sections preference cleared); section handling removed from tasks and history; upgrade tests against a sections-version fixture; 53 unit tests
 - 2026-10-21 — Ask Claude now opens a new chat in the Claude desktop app instead of the browser (browser only if the app isn't installed)
 - 2026-10-21 — next steps: task links ("↗ Open site") and "✦ Ask Claude how to start" (claude.ai prefilled) under tasks; right-click Add/Edit/Remove Link; screenshot script no longer takes focus; 34 unit tests
 - 2026-10-21 — friendlier look (warm background, greeting + progress ring, card rows, empty states, tick animation, all-done celebration); deadlines (@day, right-click ▸ Deadline, Overdue label); Calendar tab; 31 unit tests

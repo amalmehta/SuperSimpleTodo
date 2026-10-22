@@ -49,7 +49,6 @@ struct ActivityEvent: Identifiable, Codable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case id, date, kind, taskTitle, detail, tags
-        case section   // events logged while tasks had sections
     }
 
     init(from decoder: Decoder) throws {
@@ -59,8 +58,7 @@ struct ActivityEvent: Identifiable, Codable, Equatable {
         kind = try c.decode(Kind.self, forKey: .kind)
         taskTitle = try c.decode(String.self, forKey: .taskTitle)
         detail = try c.decodeIfPresent(String.self, forKey: .detail)
-        let section = try c.decodeIfPresent(String.self, forKey: .section)
-        tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? (section.map { [$0] } ?? [])
+        tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
     }
 
     func encode(to encoder: Encoder) throws {

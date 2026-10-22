@@ -1,0 +1,49 @@
+[
+  {
+    "createdAt" : "2026-10-11T07:00:00Z",
+    "id" : "6C1F0A52-1B0E-4C38-9E5A-0F7B1E2D3A01",
+    "isDone" : false,
+    "priority" : 0,
+    "section" : "Daily",
+    "title" : "Morning stretch"
+  },
+  {
+    "createdAt" : "2026-10-11T07:05:00Z",
+    "id" : "6C1F0A52-1B0E-4C38-9E5A-0F7B1E2D3A02",
+    "isDone" : false,
+    "priority" : 2,
+    "section" : "Gym",
+    "title" : "Squats"
+  },
+  {
+    "createdAt" : "2026-10-11T08:00:00Z",
+    "id" : "6C1F0A52-1B0E-4C38-9E5A-0F7B1E2D3A03",
+    "isDone" : true,
+    "priority" : 3,
+    "section" : "Work",
+    "title" : "Write report"
+  },
+  {
+    "createdAt" : "2026-10-11T09:30:00Z",
+    "id" : "6C1F0A52-1B0E-4C38-9E5A-0F7B1E2D3A04",
+    "isDone" : false,
+    "priority" : 0,
+    "title" : "Call the bank"
+  },
+  {
+    "createdAt" : "2026-10-11T10:15:00Z",
+    "id" : "6C1F0A52-1B0E-4C38-9E5A-0F7B1E2D3A05",
+    "isDone" : false,
+    "priority" : 1,
+    "section" : "Deep work",
+    "title" : "Outline chapter 4"
+  },
+  {
+    "createdAt" : "2026-10-11T11:00:00Z",
+    "id" : "6C1F0A52-1B0E-4C38-9E5A-0F7B1E2D3A06",
+    "isDone" : false,
+    "priority" : 1,
+    "section" : "Gym",
+    "title" : "Book a swim"
+  }
+]

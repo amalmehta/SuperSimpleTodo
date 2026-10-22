@@ -41,14 +41,14 @@ flowchart LR
 | `ActivityView`, `EventRow`, `EventEditor`, `ActivityLegend` | `Super Simple Todo/ActivityView.swift` | A "Completed today · this week" line, a stacked bar chart of actions per day (7, 14 or 30 days), a legend, a hover tooltip per day, and a selectable timeline of every action, newest first, under plain day-header rows. ⌫ deletes selected entries; right-click or double-click opens `EventEditor` (task title, action, new priority, date and time, tags). |
 | `SettingsView` | `Super Simple Todo/SettingsView.swift` | All preferences in one place: **Hide done tasks**, the **Tags** list (add, rename, delete, drag to reorder) and **History** (entry count, Clear History… with a confirmation). |
 | `TaskStore` | `Super Simple Todo/TaskStore.swift` | The only place tasks, tags and history change. Every change runs through `change(_:_:)`, which snapshots the state, applies the change, registers an undo step and saves. It also parses `#tag` and `!` markers, sorts and filters, and records one event per action. |
-| `TaskItem`, `Priority` | `Super Simple Todo/TaskItem.swift` | One task (id, title, done flag, priority, tags, created date) and the four priority levels. Reads the older one-`section` format as a single tag. |
+| `TaskItem`, `Priority` | `Super Simple Todo/TaskItem.swift` | One task (id, title, done flag, priority, tags, created date) and the four priority levels. Files from the sections version are upgraded by `TaskStore` (see **Upgrading from sections**). |
 | App icon | `Super Simple Todo/Assets.xcassets/AppIcon.appiconset`, drawn by `tools/MakeIcon.swift` | A white checklist tile with a ticked red task, then orange and blue ones, echoing the priority colors. The script draws the 1024 px master with Core Graphics; the 16–512 pt sizes are scaled from it with `sips`. |
 | `ActivityEvent`, `dailyCounts`, `completedCounts` | `Super Simple Todo/ActivityEvent.swift` | One logged action (date, kind, task title, optional detail, tags at the time; all editable except the id), the per-day counts the chart draws, and the today and this-week completion counts. |
 | Scripts | `tools/install.sh`, `tools/screenshots.sh` | `install.sh` builds a Release copy and puts it in /Applications. `screenshots.sh` retakes the README images from a separate test copy (its own app ID) running on generated sample data. |
 
 ## Tags
 
-- **Starting tags:** Daily, Fitness, Work, Study, offered in the right-click menu. They're created the first time the app runs without a `Tags.json`. If a `Sections.json` from the earlier sections version exists, its names are used instead.
+- **Starting tags:** Daily, Fitness, Work, Study, offered in the right-click menu. They're created the first time the app runs without a `Tags.json`. When upgrading from the sections version, the old section names are used instead.
 - **Tagging while typing:** add one or more `#name` words anywhere, e.g. `Run 5k #fitness #daily !!`. A tag matches an existing one ignoring case. An unknown tag is created on the spot: `#deep-work` becomes "Deep work". A tag must start with a letter, so "#1" and "C#" stay part of the title.
 - **Tagging later:** right-click ▸ Tags ▸ tick or untick any tag, or choose **New Tag…** to type a new one. Renaming a task and typing `#name` also adds that tag.
 - **Filtering:** click any tag label to show only tasks with that tag. A "Showing [tag] ×" bar appears; click × or the same tag again to show everything. The filter clears itself if that tag is deleted.
@@ -104,11 +104,20 @@ The Activity chart uses a separate, validated palette, one color per action: Add
 - **Hide done tasks:** a Settings toggle. It only filters the view.
 - **Launch:** `TaskStore` reads both files. If `Activity.json` doesn't exist yet, it fills in one **Added** event per task from its saved creation date. That's the only history available from before tracking started.
 
+## Upgrading from sections
+
+The sections version (2026-10-11) saved an optional `"section"` on each task and logged action, and the section names, in order, in `Sections.json`. On the first launch after upgrading, `TaskStore.migrateSections` turns that into tags once:
+- Each task's section becomes one tag of the same name, matched to the known tags ignoring case and spaces; a task in "Other" (no section) or with a blank section gets no tag. Task order is unchanged.
+- `Sections.json`'s names, in order, become the tag list (empty sections included, the starter tags not added).
+- Each logged action's section becomes its tag, even for a section deleted since; such a name isn't added to the tag list.
+- The result is saved straight away, so `Tasks.json` and `Activity.json` no longer contain `section` and a `Tags.json` exists. `Sections.json` is renamed `Sections.migrated.json` (kept, not deleted), and the old `collapsedSections` preference is removed.
+- Later launches find nothing to migrate and don't rewrite the files.
+
 ## Where data lives
 
 - Tasks: `~/Library/Application Support/Super Simple Todo/Tasks.json`
 - Activity log: `~/Library/Application Support/Super Simple Todo/Activity.json`
-- Known tags and their order: `~/Library/Application Support/Super Simple Todo/Tags.json` (a leftover `Sections.json` is only read if `Tags.json` is missing)
+- Known tags and their order: `~/Library/Application Support/Super Simple Todo/Tags.json` (a `Sections.json` from the sections version is migrated once and then kept as `Sections.migrated.json`)
 - All three are pretty-printed JSON with ISO 8601 dates, written atomically. A file that exists but can't be read is renamed to `<name>.unreadable-<date>.json` before the app starts fresh, so the next save can't overwrite it.
 - Preferences: UserDefaults for `com.amalmehta.SuperSimpleTodo`: `hideDoneTasks`, `activityDays`.
 - Sample data for trying the app: launch with `--args -TasksFile /path/Tasks.json`. `Activity.json` and `Tags.json` are then read from the same folder, and your real data is never touched. Add `-StartTab activity` to open on the Activity tab. Both options were used for the README screenshots.
@@ -118,7 +127,8 @@ The Activity chart uses a separate, validated palette, one color per action: Add
 
 - **SwiftUI with JSON files instead of SwiftData or Core Data.** The data is small, the files are readable, and backup is easy. The cost is rewriting both files on every change, which is fine at this size.
 - **An event log, separate from the tasks.** Deleted tasks still appear in history, and the chart is just a count over events. The log grows forever (see limits).
-- **Tags instead of sections (changed 2026-10-21).** The owner wanted one list rather than separate groups. A task can carry any number of tags, so nothing has to be filed in exactly one place. The trade-off is that you can't collapse or hide a group; filtering by tag would be the next step.
+- **Tags instead of sections (changed 2026-10-21).** The owner wanted one list rather than separate groups. A task can carry any number of tags, so nothing has to be filed in exactly one place. The trade-off is that you can't collapse or hide a group; filtering by tag covers most of that.
+- **Sections are migrated once, in one place.** `TaskItem` and `ActivityEvent` know nothing about sections; `TaskStore.migrateSections` reads the old keys, converts them and saves, so the old format is gone after one launch. The old `Sections.json` is renamed rather than deleted, in case anything needs recovering.
 - **Tags are stored on each task by name, not by id.** The files stay readable, and there's no lookup table. A rename has to update every task, which `renameTag` does. Names are unique, ignoring case.
 - **A separate list of known tags,** so the right-click menu can offer tags no task uses yet. Tag management lives in Settings with the other preferences.
 - **Events store the task's title, not a link to the task.** History stays readable after a task is deleted. Renaming a task doesn't rewrite old events; they keep the title it had at the time.
@@ -139,7 +149,7 @@ The Activity chart uses a separate, validated palette, one color per action: Add
 
 ## Testing
 
-`Tests/TaskStoreTests.swift` has 34 XCTest unit tests:
+`Tests/TaskStoreTests.swift` has 37 XCTest unit tests:
 - Adding: trims spaces, ignores blanks, flattens line breaks, and turns a trailing `!`/`!!`/`!!!` into a priority.
 - Tick/untick and the done count; delete and Clear Done.
 - Priority sorting, done tasks sinking below open ones, filtering by tag and hiding done tasks.
@@ -151,7 +161,8 @@ The Activity chart uses a separate, validated palette, one color per action: Add
 - Next steps: links pulled from typed text (`https://`, `www.`, trailing punctuation) while email addresses and bare domains stay in the title; Add, Edit and Remove Link with undo, saving, and rejecting non-addresses; links set by rename; the "Open site" label; and the Ask Claude URL (`claude://` for the app, `https://` otherwise, path /new with a `q` prompt that keeps `&` and includes the deadline).
 - Every action is logged and saved; history is filled in from creation dates; daily counts group by day and drop days outside the range.
 - Keyboard (`Tests/KeyboardControlTests.swift`, 16 tests): ↑/↓ with nothing, one or several selected, at both ends and leaving for the add field; the selection kept, or moved to the next or previous task, after deletes, re-sorting and ticking with done hidden; Space on a mixed selection, ⌫, and priority for several tasks, each one undo step; and the VoiceOver text (done state, priority, tags, overdue deadline, link) and spoken key names.
-- Tags: a fresh store gets the four starters; `#tag` parsing and on-the-fly creation (several per task, case matching, duplicates dropped, `#deep-work`, "#1" and "C#" ignored, tag-only input); the list stays one priority-sorted list; toggle, rename (refuses a taken name) and delete update tasks; events record tags; files from the sections version load as tags and are saved without `section`.
+- Tags: a fresh store gets the four starters; `#tag` parsing and on-the-fly creation (several per task, case matching, duplicates dropped, `#deep-work`, "#1" and "C#" ignored, tag-only input); the list stays one priority-sorted list; toggle, rename (refuses a taken name) and delete update tasks; events record tags.
+- Upgrading from sections, against files saved by the sections version (`Tests/Fixtures/SectionsVersion`): each section becomes the same tag with task order, priorities and done state kept, "Other" gets no tag, `Sections.json`'s order (empty sections included) becomes the tag order, and logged actions keep their section (even a deleted one) as a tag; the upgrade saves at once without `section`, renames `Sections.json`, clears `collapsedSections` and reloads identically; case and spaces are matched and blank sections skipped; files already in the tags format aren't rewritten.
 
 Run them with:
 

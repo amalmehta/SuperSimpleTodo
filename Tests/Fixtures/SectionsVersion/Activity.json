@@ -1,0 +1,44 @@
+[
+  {
+    "date" : "2026-10-11T07:00:00Z",
+    "id" : "A1B2C3D4-0000-4000-8000-000000000001",
+    "kind" : "added",
+    "section" : "Daily",
+    "taskTitle" : "Morning stretch"
+  },
+  {
+    "date" : "2026-10-11T07:05:00Z",
+    "id" : "A1B2C3D4-0000-4000-8000-000000000002",
+    "kind" : "added",
+    "section" : "Gym",
+    "taskTitle" : "Squats"
+  },
+  {
+    "date" : "2026-10-11T08:40:00Z",
+    "detail" : "High",
+    "id" : "A1B2C3D4-0000-4000-8000-000000000003",
+    "kind" : "priorityChanged",
+    "section" : "Work",
+    "taskTitle" : "Write report"
+  },
+  {
+    "date" : "2026-10-11T09:00:00Z",
+    "id" : "A1B2C3D4-0000-4000-8000-000000000004",
+    "kind" : "completed",
+    "section" : "Work",
+    "taskTitle" : "Write report"
+  },
+  {
+    "date" : "2026-10-11T09:30:00Z",
+    "id" : "A1B2C3D4-0000-4000-8000-000000000005",
+    "kind" : "added",
+    "taskTitle" : "Call the bank"
+  },
+  {
+    "date" : "2026-10-11T09:45:00Z",
+    "id" : "A1B2C3D4-0000-4000-8000-000000000006",
+    "kind" : "deleted",
+    "section" : "Garden",
+    "taskTitle" : "Water the tomatoes"
+  }
+]

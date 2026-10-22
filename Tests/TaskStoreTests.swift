@@ -179,20 +179,80 @@ final class TaskStoreTests: XCTestCase {
         XCTAssertEqual(store.events.map(\.tags), [["Work"], ["Work", "Daily"]])
     }
 
-    func testSectionsVersionFilesBecomeTags() throws {
+    // MARK: Migration from the sections version
+
+    /// Copies Tests/Fixtures/SectionsVersion (files saved by the sections version) next to `fileURL`.
+    private func installSectionsFixture() throws -> URL {
         let dir = fileURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try Data(#"[{"createdAt":"2026-10-11T07:00:00Z","id":"DD816FCA-94AB-47D5-920C-3734FE1FC1FE","isDone":false,"priority":0,"section":"Gym","title":"Squats"}]"#.utf8).write(to: fileURL)
-        try Data(#"["Daily","Gym"]"#.utf8).write(to: dir.appendingPathComponent("Sections.json"))
-        try Data(#"[{"date":"2026-10-11T07:00:00Z","id":"11111111-0000-0000-0000-000000000001","kind":"added","section":"Gym","taskTitle":"Squats"}]"#.utf8).write(to: dir.appendingPathComponent("Activity.json"))
+        let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/SectionsVersion")
+        for name in ["Tasks.json", "Sections.json", "Activity.json"] {
+            try FileManager.default.copyItem(at: fixture.appendingPathComponent(name),
+                                             to: dir.appendingPathComponent(name))
+        }
+        return dir
+    }
+
+    func testSectionsFixtureMigratesToTags() throws {
+        _ = try installSectionsFixture()
         let store = TaskStore(fileURL: fileURL)
-        XCTAssertEqual(store.tasks[0].tags, ["Gym"])
-        XCTAssertEqual(store.tags, ["Daily", "Gym"])
-        XCTAssertEqual(store.events[0].tags, ["Gym"])
-        store.add("x")   // saves: tasks are written with tags and no section key
-        let saved = try String(contentsOf: fileURL, encoding: .utf8)
-        XCTAssertFalse(saved.contains("section"))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("Tags.json").path))
+        // Same tasks in the same saved order; each section became one tag, "Other" became no tag.
+        XCTAssertEqual(store.tasks.map(\.title),
+                       ["Morning stretch", "Squats", "Write report", "Call the bank", "Outline chapter 4", "Book a swim"])
+        XCTAssertEqual(store.tasks.map(\.tags), [["Daily"], ["Gym"], ["Work"], [], ["Deep work"], ["Gym"]])
+        XCTAssertEqual(store.tasks.map(\.priority), [.none, .medium, .high, .none, .low, .low])
+        XCTAssertEqual(store.tasks.map(\.isDone), [false, false, true, false, false, false])
+        // Sections.json's order becomes the tag order, empty sections included; the starters aren't added.
+        XCTAssertEqual(store.tags, ["Daily", "Gym", "Work", "Errands", "Deep work"])
+        // Logged actions keep their section as a tag, even one deleted since ("Garden"), which isn't a known tag.
+        XCTAssertEqual(store.events.map(\.tags), [["Daily"], ["Gym"], ["Work"], ["Work"], [], ["Garden"]])
+        XCTAssertEqual(store.events.map(\.detail), [nil, nil, "High", nil, nil, nil])
+        XCTAssertEqual(store.visibleTasks(hideDone: false, tag: "Gym").map(\.title), ["Squats", "Book a swim"])
+    }
+
+    func testSectionsMigrationSavesOnceInTagsFormat() throws {
+        let dir = try installSectionsFixture()
+        UserDefaults.standard.set("Gym\n", forKey: "collapsedSections")
+        let migrated = TaskStore(fileURL: fileURL)
+        // Saved straight away, with no edit needed, and nothing left in the old format.
+        for name in ["Tasks.json", "Activity.json"] {
+            let saved = try String(contentsOf: dir.appendingPathComponent(name), encoding: .utf8)
+            XCTAssertFalse(saved.contains("section"), name)
+        }
+        let tagsFile = try Data(contentsOf: dir.appendingPathComponent("Tags.json"))
+        XCTAssertEqual(try JSONDecoder().decode([String].self, from: tagsFile), migrated.tags)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("Sections.json").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("Sections.migrated.json").path))
+        XCTAssertNil(UserDefaults.standard.string(forKey: "collapsedSections"))
+        // Loading again reads the new files and gives the same result.
+        let reloaded = TaskStore(fileURL: fileURL)
+        XCTAssertEqual(reloaded.tasks, migrated.tasks)
+        XCTAssertEqual(reloaded.tags, migrated.tags)
+        XCTAssertEqual(reloaded.events, migrated.events)
+    }
+
+    func testSectionsMigrationMatchesCaseAndSkipsBlankSections() throws {
+        let dir = fileURL.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        // Hand-edited: a section in different case from Sections.json, a blank one, and no Activity.json.
+        try Data(#"[{"createdAt":"2026-10-11T07:00:00Z","id":"DD816FCA-94AB-47D5-920C-3734FE1FC1FE","isDone":false,"priority":0,"section":"gym ","title":"Squats"},{"createdAt":"2026-10-11T07:01:00Z","id":"DD816FCA-94AB-47D5-920C-3734FE1FC1FF","isDone":false,"priority":0,"section":"","title":"Stretch"}]"#.utf8).write(to: fileURL)
+        try Data(#"["Gym"]"#.utf8).write(to: dir.appendingPathComponent("Sections.json"))
+        let store = TaskStore(fileURL: fileURL)
+        XCTAssertEqual(store.tasks.map(\.tags), [["Gym"], []])
+        XCTAssertEqual(store.tags, ["Gym"])
+        XCTAssertEqual(store.events.map(\.taskTitle), ["Squats", "Stretch"])
+    }
+
+    func testTagsVersionFilesAreNotMigrated() throws {
+        let store = TaskStore(fileURL: fileURL)
+        store.add("Plan week #work")
+        let saved = try Data(contentsOf: fileURL)
+        let reloaded = TaskStore(fileURL: fileURL)
+        XCTAssertEqual(reloaded.tasks.map(\.tags), [["Work"]])
+        XCTAssertEqual(try Data(contentsOf: fileURL), saved)   // loading didn't rewrite the file
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: fileURL.deletingLastPathComponent().appendingPathComponent("Sections.migrated.json").path))
     }
 
     func testCorruptFileStartsEmpty() throws {
