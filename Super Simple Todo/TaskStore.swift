@@ -266,6 +266,46 @@ final class TaskStore: ObservableObject {
         change("Clear History") { events.removeAll() }
     }
 
+    // MARK: Export and import
+
+    /// Everything in the store, for File ▸ Export….
+    func backup(exportedAt: Date = Date()) -> Backup {
+        Backup(exportedAt: exportedAt, tags: tags, tasks: tasks, activity: events)
+    }
+
+    /// Brings in an exported file as one undo step. Replace swaps everything for the file's contents.
+    /// Merge keeps everything here and skips any task or history entry whose ID is already here; the
+    /// rest is added (tasks after the current ones, history in date order, new tags after the current ones).
+    @discardableResult
+    func importBackup(_ backup: Backup, mode: ImportMode) -> ImportSummary {
+        var summary = ImportSummary()
+        change("Import") {
+            if mode == .replace {
+                tasks = []
+                tags = []
+                events = backup.activity
+                summary.eventsAdded = events.count
+            } else {
+                let eventIDs = Set(events.map(\.id))
+                let newEvents = backup.activity.filter { !eventIDs.contains($0.id) }
+                events = (events + newEvents).sorted { $0.date < $1.date }
+                summary.eventsAdded = newEvents.count
+            }
+            backup.tags.forEach { _ = ensureTag($0) }
+            let taskIDs = Set(tasks.map(\.id))
+            for var task in backup.tasks {
+                guard !taskIDs.contains(task.id) else {
+                    summary.tasksSkipped += 1
+                    continue
+                }
+                task.tags = task.tags.compactMap(ensureTag).uniqued()
+                tasks.append(task)
+                summary.tasksAdded += 1
+            }
+        }
+        return summary
+    }
+
     // MARK: Parsing
 
     static func flatten(_ text: String) -> String {
