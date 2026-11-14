@@ -19,7 +19,7 @@ final class BackupTests: XCTestCase {
     }
 
     /// A store with every kind of data: tags (one unused, one renamed), priorities, a deadline, a link,
-    /// completions on two days, a priority change, a deletion and an edited history entry.
+    /// completions on two days, a priority change, a deletion, an archived task and an edited history entry.
     private func makeFilledStore() -> TaskStore {
         let store = makeStore("source")
         store.add("Run 5k !!! #fitness @tomorrow")
@@ -32,6 +32,7 @@ final class BackupTests: XCTestCase {
         store.toggle(store.tasks[0].id)
         store.toggle(store.tasks[1].id)
         store.delete(store.tasks[3].id)
+        store.archive([store.tasks[2].id])
         var earlier = store.events.last { $0.kind == .completed }!
         earlier.date = Calendar.current.date(byAdding: .day, value: -1, to: earlier.date)!
         store.updateEvent(earlier)
@@ -62,6 +63,8 @@ final class BackupTests: XCTestCase {
         XCTAssertNotNil(source.tasks.first?.deadline)
         XCTAssertNotNil(source.tasks.first { $0.link != nil })
         XCTAssertTrue(source.tags.contains("Errands") && source.tags.contains("Home"))
+        XCTAssertEqual(source.archivedTasks.map(\.title), ["Call mum"])
+        XCTAssertNotNil(source.archivedTasks.first?.touchedAt)
 
         let data = try source.backup().encoded()
         let target = makeStore("target")
@@ -156,6 +159,14 @@ final class BackupTests: XCTestCase {
         let task = try XCTUnwrap((json["tasks"] as? [[String: Any]])?.first)
         XCTAssertEqual(task["deadline"] as? String, "2030-01-02")
         XCTAssertEqual(task["tags"] as? [String], ["Fitness"])
+        XCTAssertNil(task["archivedAt"])     // left out while on the list, so older copies read it unchanged
+        XCTAssertNil(task["touchedAt"])
+
+        store.archive([store.tasks[0].id], now: Date(timeIntervalSince1970: 1.5))
+        let archived = try XCTUnwrap(JSONSerialization.jsonObject(with: store.backup().encoded()) as? [String: Any])
+        let archivedTask = try XCTUnwrap((archived["tasks"] as? [[String: Any]])?.first)
+        XCTAssertEqual(archivedTask["archivedAt"] as? String, "1970-01-01T00:00:01.500Z")
+        XCTAssertEqual(archived["version"] as? Int, 1)
     }
 
     func testHandWrittenFileWithWholeSecondDatesImports() throws {

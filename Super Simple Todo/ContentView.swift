@@ -50,73 +50,44 @@ struct TasksView: View {
     @State private var linkTarget: TaskItem?
     @State private var linkText = ""
     @Environment(\.openURL) private var openURL
+    /// True while the Tasks tab shows the archive instead of the list.
+    @State private var showingArchive = false
+    @State private var archiveQuery = ""
+    @State private var archiveSelection = Set<UUID>()
+    @FocusState private var searchFocused: Bool
+    @FocusState private var archiveListFocused: Bool
+    /// The untouched tasks showing when you chose Not Now; the nudge returns once another one appears.
+    @AppStorage("dismissedStaleTasks") private var dismissedStale = ""
 
     private var visibleTasks: [TaskItem] {
         tagFilter.apply(to: store.sortedTasks, hideDone: hideDoneTasks)
+    }
+
+    private var archiveResults: [TaskItem] {
+        ArchiveSearch.filter(store.tasks, query: archiveQuery)
+    }
+
+    /// Open tasks untouched for `StaleTasks.days` days, if the nudge should offer them.
+    private var staleToOffer: [TaskItem] {
+        let stale = StaleTasks.find(in: store.tasks)
+        let shouldNudge = StaleTasks.shouldNudge(stale: stale.map(\.id), dismissed: StaleTasks.decode(dismissedStale))
+        return shouldNudge ? stale : []
     }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Shown briefly after the last open task is ticked.
     @State private var celebrating = false
 
+    private var motion: Animation? { reduceMotion ? nil : .easeInOut(duration: 0.2) }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            GreetingHeader(done: store.doneCount, total: store.tasks.count)
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
-
-            AddTaskField(text: $newTitle, focused: $inputFocused, tags: store.tags, tasks: store.tasks, onSubmit: {
-                store.add(newTitle)
-                newTitle = ""
-            }, onMoveDown: { move(.down) }, onEscape: { tagFilter.clear() })
-            .padding(.horizontal, 16)
-            .zIndex(1)   // the tag suggestions float over the list below
-
-            PriorityKey()
-                .padding(.horizontal, 18)
-                .padding(.top, 6)
-                .padding(.bottom, 4)
-
-            if let tag = tagFilter.tag {
-                HStack(spacing: 6) {
-                    Text("Showing")
-                    FilterToken(tag: tag) { tagFilter.clear() }
-                    Spacer()
-                }
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 18)
-                .padding(.bottom, 4)
-            }
-
-            if visibleTasks.isEmpty {
-                emptyState
+            if showingArchive {
+                archiveScreen
             } else {
-                list
+                listScreen
             }
-
-            HStack {
-                Spacer()
-                Button {
-                    store.clearDone()
-                } label: {
-                    Label("Clear Done", systemImage: "sparkles")
-                }
-                .buttonStyle(.borderless)
-                .disabled(store.doneCount == 0)
-                .help("Remove finished tasks (⇧⌘⌫)")
-                SettingsLink {
-                    Image(systemName: "gearshape")
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel("Settings")
-                .help("Settings (⌘,)")
-            }
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            footer
         }
         .background(Theme.background)
         .overlay(alignment: .bottom) {
@@ -134,7 +105,7 @@ struct TasksView: View {
         }
         .onChange(of: store.doneCount) { old, new in
             // Celebrate only the moment the last open task gets ticked.
-            guard new > old, new == store.tasks.count, new > 0 else { return }
+            guard new > old, new == store.activeTasks.count, new > 0 else { return }
             withAnimation(reduceMotion ? nil : .spring(duration: 0.4)) { celebrating = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.4)) { celebrating = false }
@@ -155,14 +126,35 @@ struct TasksView: View {
             DeadlinePicker(task: task) { store.setDeadline($0, for: task.id) }
         }
         .onAppear { inputFocused = true }
-        .onReceive(NotificationCenter.default.publisher(for: .newTask)) { _ in inputFocused = true }
+        .onReceive(NotificationCenter.default.publisher(for: .newTask)) { _ in
+            showingArchive = false
+            inputFocused = true
+        }
         .onReceive(NotificationCenter.default.publisher(for: .setPriority)) { note in
-            guard isActive, let priority = note.object as? Priority else { return }
+            guard isActive, !showingArchive, let priority = note.object as? Priority else { return }
             guard !selection.isEmpty else { return NSSound.beep() }
             store.setPriority(priority, for: selection)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .archiveSelection)) { _ in
+            guard isActive else { return }
+            if showingArchive {
+                guard !archiveSelection.isEmpty else { return NSSound.beep() }
+                restore(archiveSelection)
+            } else {
+                guard !selection.isEmpty else { return NSSound.beep() }
+                archive(selection)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .toggleArchive)) { _ in
+            setArchiveShowing(!isActive || !showingArchive)
+        }
         .onChange(of: visibleTasks.map(\.id)) { old, new in
             selection = ListNavigation.reconcile(selection, old: old, new: new)
+        }
+        .onChange(of: archiveResults.map(\.id)) { old, new in
+            archiveSelection = ListNavigation.reconcile(archiveSelection, old: old, new: new)
+            // The list disappears with its last result; keep the keyboard working from the search field.
+            if showingArchive, new.isEmpty, !searchFocused { searchFocused = true }
         }
         .onChange(of: store.tags) { tagFilter.keepOnly(knownTags: store.tags) }
         .alert("New Tag", isPresented: Binding(get: { tagTarget != nil }, set: { if !$0 { tagTarget = nil } })) {
@@ -177,11 +169,251 @@ struct TasksView: View {
         }
     }
 
+    // MARK: The list
+
+    @ViewBuilder
+    private var listScreen: some View {
+        GreetingHeader(done: store.doneCount, total: store.activeTasks.count)
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+        AddTaskField(text: $newTitle, focused: $inputFocused, tags: store.tags, tasks: store.activeTasks,
+                     archived: store.archivedTasks, onSubmit: {
+            store.add(newTitle)
+            newTitle = ""
+        }, onMoveDown: { move(.down) }, onEscape: { tagFilter.clear() }, onRestore: { task in
+            restore([task.id])
+            newTitle = ""
+        })
+        .padding(.horizontal, 16)
+        .zIndex(1)   // the suggestions float over the list below
+
+        PriorityKey()
+            .padding(.horizontal, 18)
+            .padding(.top, 6)
+            .padding(.bottom, 4)
+
+        let stale = staleToOffer
+        if !stale.isEmpty {
+            StaleNudge(tasks: stale, onArchive: {
+                archive(Set(stale.map(\.id)), actionName: "Archive Untouched Tasks")
+            }, onDismiss: {
+                withAnimation(motion) { dismissedStale = StaleTasks.encode(Set(stale.map(\.id))) }
+            })
+            .padding(.horizontal, 16)
+            .padding(.bottom, 6)
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+
+        if let tag = tagFilter.tag {
+            HStack(spacing: 6) {
+                Text("Showing")
+                FilterToken(tag: tag) { tagFilter.clear() }
+                Spacer()
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 18)
+            .padding(.bottom, 4)
+        }
+
+        if visibleTasks.isEmpty {
+            emptyState
+        } else {
+            list
+        }
+    }
+
+    private var footer: some View {
+        HStack {
+            Button {
+                setArchiveShowing(!showingArchive)
+            } label: {
+                if showingArchive {
+                    Label("Back to Tasks", systemImage: "chevron.left")
+                } else {
+                    Label("Archived \(store.archivedTasks.count)", systemImage: "archivebox")
+                }
+            }
+            .buttonStyle(.borderless)
+            .help(showingArchive ? "Back to your list (⇧⌘A or Esc)" : "Tasks you've parked or finished, ready to bring back (⇧⌘A)")
+            Spacer()
+            if !showingArchive {
+                Button {
+                    withAnimation(motion) { store.archiveDone() }
+                } label: {
+                    Label("Archive Done", systemImage: "checkmark.rectangle.stack")
+                }
+                .buttonStyle(.borderless)
+                .disabled(store.doneCount == 0)
+                .help("Move finished tasks to the archive (⇧⌘⌫). Nothing is deleted.")
+            }
+            SettingsLink {
+                Image(systemName: "gearshape")
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Settings")
+            .help("Settings (⌘,)")
+        }
+        .font(.callout)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+
+    private func setArchiveShowing(_ show: Bool) {
+        withAnimation(motion) { showingArchive = show }
+        if show {
+            archiveSelection = []
+            DispatchQueue.main.async { searchFocused = true }
+        } else {
+            archiveQuery = ""
+            DispatchQueue.main.async { inputFocused = true }
+        }
+    }
+
+    private func archive(_ ids: Set<UUID>, actionName: String? = nil) {
+        withAnimation(motion) { store.archive(ids, actionName: actionName) }
+    }
+
+    private func restore(_ ids: Set<UUID>) {
+        withAnimation(motion) { store.restore(ids) }
+    }
+
+    // MARK: The archive
+
+    @ViewBuilder
+    private var archiveScreen: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Label("Archive", systemImage: "archivebox")
+                .font(.title2.weight(.semibold))
+                .labelStyle(GreetingLabelStyle())
+            Text("Parked and finished tasks wait here. Restore one and it's back on your list, open.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 10)
+
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField("Search the archive by words or tag", text: $archiveQuery)
+                .textFieldStyle(.plain)
+                .focused($searchFocused)
+                .onKeyPress(.downArrow) {
+                    moveInArchive(.down)
+                    return .handled
+                }
+                .onKeyPress(.escape) {
+                    if archiveQuery.isEmpty { setArchiveShowing(false) } else { archiveQuery = "" }
+                    return .handled
+                }
+                .onSubmit {
+                    // Return in the search field brings back the top result.
+                    if let first = archiveResults.first { restore([first.id]) }
+                }
+            if !archiveQuery.isEmpty {
+                Button { archiveQuery = "" } label: { Image(systemName: "xmark.circle.fill") }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityLabel("Clear search")
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius)
+            .stroke(searchFocused ? Color.accentColor.opacity(0.6) : Theme.cardStroke))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+
+        if archiveResults.isEmpty {
+            if store.archivedTasks.isEmpty {
+                EmptyState(symbol: "archivebox", title: "Nothing archived yet",
+                           message: "Right-click a task \u{25B8} Archive (or \u{2303}\u{2318}A) to park it here until it's relevant.\nArchive Done moves finished tasks here too.")
+            } else {
+                EmptyState(symbol: "magnifyingglass", title: "No matches",
+                           message: "Nothing archived starts with \u{201C}\(archiveQuery)\u{201D}. Try fewer letters or a tag name.")
+            }
+        } else {
+            archiveList
+        }
+    }
+
+    private var archiveList: some View {
+        List(selection: $archiveSelection) {
+            ForEach(archiveResults) { task in
+                ArchiveRow(task: task, onRestore: { restore([task.id]) })
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 3, leading: 12, bottom: 3, trailing: 12))
+                    .listRowBackground(
+                        RoundedRectangle(cornerRadius: Theme.cardRadius)
+                            .fill(archiveSelection.contains(task.id) ? Color.accentColor.opacity(0.14) : Theme.card)
+                            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius)
+                                .stroke(archiveSelection.contains(task.id) ? Color.accentColor.opacity(0.5) : Theme.cardStroke))
+                            .padding(.vertical, 3)
+                            .padding(.horizontal, 12)
+                    )
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .focused($archiveListFocused)
+        .contextMenu(forSelectionType: UUID.self) { ids in
+            if !ids.isEmpty {
+                Button(ids.count == 1 ? "Restore" : "Restore \(ids.count) Tasks") { restore(ids) }
+                Divider()
+                Button(ids.count == 1 ? "Delete for Good" : "Delete \(ids.count) Tasks for Good", role: .destructive) {
+                    store.delete(ids)
+                }
+            }
+        } primaryAction: { ids in
+            restore(ids)
+        }
+        .onDeleteCommand { store.delete(archiveSelection) }
+        .onKeyPress(.return) {
+            guard !archiveSelection.isEmpty else { return .ignored }
+            restore(archiveSelection)
+            return .handled
+        }
+        .onKeyPress(.upArrow) {
+            moveInArchive(.up)
+            return .handled
+        }
+        .onKeyPress(.downArrow) {
+            moveInArchive(.down)
+            return .handled
+        }
+        .onKeyPress(.escape) {
+            setArchiveShowing(false)
+            return .handled
+        }
+    }
+
+    /// ↑ / ↓ in the archive; ↑ from the top goes back to the search field.
+    private func moveInArchive(_ direction: ListNavigation.Direction) {
+        switch ListNavigation.move(direction, from: archiveSelection, in: archiveResults.map(\.id)) {
+        case .select(let id):
+            archiveSelection = [id]
+            archiveListFocused = true
+        case .addField:
+            archiveSelection = []
+            searchFocused = true
+        case .none:
+            break
+        }
+    }
+
     @ViewBuilder
     private var emptyState: some View {
-        if store.tasks.isEmpty {
+        if store.activeTasks.isEmpty {
             EmptyState(symbol: "leaf", title: "A fresh start",
-                       message: "Type a task above and press Return.\nTry \u{201C}Water the plants #daily !\u{201D}")
+                       message: store.archivedTasks.isEmpty
+                           ? "Type a task above and press Return.\nTry \u{201C}Water the plants #daily !\u{201D}"
+                           : "Type a task above and press Return.\nParked tasks wait in Archived, below.")
         } else if tagFilter.isActive {
             EmptyState(symbol: "tag", title: "Nothing here yet",
                        message: "No open tasks with this tag.")
@@ -218,6 +450,7 @@ struct TasksView: View {
                         onToggle: { toggle([task.id]) },
                         onRename: { beginEdit(task.id) },
                         onTagTap: { tag in tagFilter.toggle(tag) },
+                        onArchive: { archive([task.id]) },
                         editor: editingID == task.id ? AnyView(editor) : nil)
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets(top: 3, leading: 12, bottom: 3, trailing: 12))
@@ -239,6 +472,7 @@ struct TasksView: View {
                 menu(for: task)
             } else if !ids.isEmpty {
                 Button("Tick or Untick \(ids.count) Tasks") { toggle(ids) }
+                Button("Archive \(ids.count) Tasks") { archive(ids) }
                 Button("Delete \(ids.count) Tasks", role: .destructive) { store.delete(ids) }
             }
         } primaryAction: { ids in
@@ -342,6 +576,7 @@ struct TasksView: View {
             Button("New Tag…") { tagTarget = task }
         }
         Divider()
+        Button("Archive") { archive([task.id]) }
         Button("Delete", role: .destructive) { store.delete(task.id) }
     }
 }
@@ -414,6 +649,7 @@ struct TaskRow: View {
     let onToggle: () -> Void
     var onRename: (() -> Void)?
     var onTagTap: ((String) -> Void)?
+    var onArchive: (() -> Void)?
     /// Shown instead of the title while renaming.
     var editor: AnyView?
     /// True once the pointer has rested on the row briefly (so sweeping past doesn't flicker).
@@ -481,6 +717,7 @@ struct TaskRow: View {
         .accessibilityAction(named: task.isDone ? "Mark Not Done" : "Mark Done") { onToggle() }
         .accessibilityActions {
             if let onRename { Button("Rename", action: onRename) }
+            if let onArchive { Button("Archive", action: onArchive) }
             if let link = task.link {
                 Button(NextStep.linkLabel(link)) { NSWorkspace.shared.open(link) }
             } else if !task.isDone {
@@ -631,19 +868,26 @@ struct ProgressRing: View {
     }
 }
 
-/// The rounded "Add a task" field with a plus icon. Typing "#" offers known tags below it.
+/// The rounded "Add a task" field with a plus icon. Typing "#" offers known tags below it, and
+/// typing words that match an archived task offers to bring that task back instead.
 struct AddTaskField: View {
     @Binding var text: String
     var focused: FocusState<Bool>.Binding
     /// Known tags and the tasks that use them, for the "#" suggestions.
     var tags: [String] = []
     var tasks: [TaskItem] = []
+    /// Archived tasks, offered back while you type.
+    var archived: [TaskItem] = []
     let onSubmit: () -> Void
     /// ↓ in the field moves into the list.
     var onMoveDown: () -> Void = {}
     /// Esc with no suggestions showing.
     var onEscape: () -> Void = {}
+    /// Bring back an archived task the field offered.
+    var onRestore: (TaskItem) -> Void = { _ in }
     @State private var highlighted = 0
+    /// The archived task picked with ↓, or nil: Return adds the typed task unless you picked one.
+    @State private var restoreHighlight: Int?
     /// The text when Esc closed the suggestions; they stay closed until it changes.
     @State private var dismissedText: String?
 
@@ -661,6 +905,12 @@ struct AddTaskField: View {
         return list.isEmpty ? nil : list[min(highlighted, list.count - 1)]
     }
 
+    /// Archived tasks matching the words typed so far (only while no tag suggestions show).
+    private var restoreMatches: [TaskItem] {
+        guard focused.wrappedValue, dismissedText != text, suggestions.isEmpty else { return [] }
+        return ArchiveSearch.restoreSuggestions(for: text, in: archived)
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "plus.circle.fill")
@@ -671,12 +921,24 @@ struct AddTaskField: View {
                 .focused(focused)
                 .onSubmit(onSubmit)
                 .onKeyPress(.downArrow) {
-                    if suggestions.isEmpty { onMoveDown() } else { highlighted = min(highlighted + 1, suggestions.count - 1) }
+                    let matches = restoreMatches
+                    if !suggestions.isEmpty {
+                        highlighted = min(highlighted + 1, suggestions.count - 1)
+                    } else if !matches.isEmpty {
+                        restoreHighlight = min((restoreHighlight ?? -1) + 1, matches.count - 1)
+                    } else {
+                        onMoveDown()
+                    }
                     return .handled
                 }
                 .onKeyPress(.upArrow) {
-                    guard !suggestions.isEmpty else { return .ignored }
-                    highlighted = max(highlighted - 1, 0)
+                    if !suggestions.isEmpty {
+                        highlighted = max(highlighted - 1, 0)
+                    } else if let index = restoreHighlight {
+                        restoreHighlight = index == 0 ? nil : index - 1
+                    } else {
+                        return .ignored
+                    }
                     return .handled
                 }
                 .onKeyPress(.tab) {
@@ -685,16 +947,25 @@ struct AddTaskField: View {
                     return .handled
                 }
                 .onKeyPress(.return) {
+                    let matches = restoreMatches
+                    if let index = restoreHighlight, index < matches.count {
+                        restoreHighlight = nil
+                        onRestore(matches[index])
+                        return .handled
+                    }
                     // A tag already typed in full leaves Return to add the task.
                     guard let current, let query, !TagAutocomplete.isTyped(current, as: query) else { return .ignored }
                     accept(current)
                     return .handled
                 }
                 .onKeyPress(.escape) {
-                    if suggestions.isEmpty { onEscape() } else { dismissedText = text }
+                    if suggestions.isEmpty && restoreMatches.isEmpty { onEscape() } else { dismissedText = text }
                     return .handled
                 }
-                .onChange(of: text) { highlighted = 0 }
+                .onChange(of: text) {
+                    highlighted = 0
+                    restoreHighlight = nil
+                }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
@@ -711,6 +982,14 @@ struct AddTaskField: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.leading, 30)
                         .padding(.top, 4)
+                } else if !restoreMatches.isEmpty {
+                    RestoreSuggestions(tasks: restoreMatches, highlighted: restoreHighlight) { task in
+                        restoreHighlight = nil
+                        onRestore(task)
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 30)
+                    .padding(.top, 4)
                 }
             }
         }

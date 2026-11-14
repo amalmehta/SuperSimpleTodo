@@ -29,7 +29,7 @@ xcodebuild -project SuperSimpleTodo.xcodeproj -scheme "Super Simple Todo" -deriv
 open "build/Build/Products/Debug/Super Simple Todo.app"
 ```
 
-Run the tests (62 unit tests):
+Run the tests (85 unit tests):
 
 ```bash
 xcodebuild -project SuperSimpleTodo.xcodeproj -scheme "Super Simple Todo" -derivedDataPath build test
@@ -63,7 +63,7 @@ Example: `Finish report #work !!! @fri`
   - Return renames (Return again saves, Esc cancels)
   - ↑↓ move the selection
 - Double-click a task to rename it. Typing `#tag` or `!!` while renaming adds a tag or sets the priority.
-- Right-click a task for **Rename**, **Priority ▸**, **Deadline ▸** (Today, Tomorrow, In a Week, Pick a Date…, Remove Deadline), **Tags ▸** (tick or untick a tag, or **New Tag…**) and **Delete**.
+- Right-click a task for **Rename**, **Priority ▸**, **Deadline ▸** (Today, Tomorrow, In a Week, Pick a Date…, Remove Deadline), **Tags ▸** (tick or untick a tag, or **New Tag…**), **Archive** and **Delete**.
 - **Next steps:**
   - A task with a link shows **↗ Open <site>** under its title. Click it to open the page.
   - Add, change or remove a link with right-click ▸ **Add Link…** / **Edit Link…** / **Remove Link**. There, a bare `site.com/page` works too.
@@ -72,9 +72,20 @@ Example: `Finish report #work !!! @fri`
 - A task with a deadline shows "Today", "Tomorrow", a weekday within the next week, or a date. Past deadlines on open tasks show a red "Overdue". Deadlines don't change the order. With several selected: **Tick or Untick** and **Delete**.
 - Type `#` in the add field to pick from your tags, most used first. Keep typing to narrow the list, ↑↓ to choose, Tab or Return to add it, Esc to close it.
 - Click a tag on a task to show only tasks with that tag. Click × on the "Showing" token, or press Esc, to show everything again.
-- **Clear Done** (or ⇧⌘⌫) removes every finished task.
+- **Archive Done** (or ⇧⌘⌫) moves every finished task to the archive. Nothing is deleted.
 - The list shows open tasks first, sorted High → None and then by the order you added them. Done tasks sit at the bottom.
-- **⌘Z** undoes the last change and **⇧⌘Z** redoes it. That includes deletes, Clear Done, ticks, renames, tag changes and history edits.
+- **⌘Z** undoes the last change and **⇧⌘Z** redoes it. That includes deletes, archiving and restoring, ticks, renames, tag changes and history edits.
+
+**Archive** (for tasks that aren't for now):
+- **Park a task:** right-click ▸ **Archive**, or select tasks and press ⌃⌘A. It leaves the list and the calendar but keeps its title, tags, priority, deadline and link.
+- **Finished tasks:** **Archive Done** (⇧⌘⌫) moves them all to the archive.
+- **Untouched tasks:** when an open task hasn't been added, edited, ticked or restored for 30 days, a bar above the list says so, e.g. "2 untouched for 30+ days: Learn Rust and Fix the bike". **Archive Them** archives them (⌘Z brings them back). **Not Now** hides the bar until another task goes stale. Nothing is ever archived without your click.
+- **Open the archive:** click **Archived N** at the bottom left, or press ⇧⌘A. Parked tasks come first, then finished ones (struck through), newest first.
+  - Type in the search field to narrow it: every word you type must start a word of the task or one of its tags, so `ren pass` finds "Renew passport" and `fit` finds Fitness tasks.
+  - **Restore** with the ↺ button, Return on a selected task, a double-click, or right-click ▸ **Restore**. Return in the search field restores the top result. A restored task comes back **open**, even if it was finished, so recurring jobs are easy to bring back.
+  - ⌫ or right-click ▸ **Delete for Good** deletes it (⌘Z still brings it back).
+  - Esc clears the search, then a second Esc goes back to the list. So does **‹ Back to Tasks** or ⇧⌘A.
+- **Bring one back while typing:** once you've typed three letters in the add field, archived tasks that match show up under it ("In your archive"). Press ↓ to pick one and Return to restore it, or click it. Without ↓, Return adds your text as a new task as usual.
 
 **Shortcuts** (also listed in Settings ▸ Keyboard Shortcuts):
 - ⌘N: new task (jumps to the add field)
@@ -82,11 +93,13 @@ Example: `Finish report #work !!! @fri`
 - Space: tick or untick the selected tasks
 - Return: rename the selected task (Esc stops), or go to the add field when nothing is selected
 - ⌫: delete the selected tasks (⌘Z brings them back)
+- ⌃⌘A: archive the selected tasks (in the archive: restore them)
+- ⇧⌘A: open or leave the archive
 - #: tag suggestions in the add field (↑ ↓ to pick, Tab or Return to add)
-- Esc: close the tag suggestions, or clear the tag filter
+- Esc: close the suggestions, clear the tag filter, or (in the archive) clear the search and go back
 - ⌘1 / ⌘2 / ⌘3: Low / Medium / High priority for the selected tasks; ⌘0: no priority
 - ⌥⌘1 / ⌥⌘2 / ⌥⌘3: Tasks / Calendar / Activity tab
-- ⇧⌘⌫: Clear Done
+- ⇧⌘⌫: Archive Done
 - ⌘,: Settings
 
 **VoiceOver:** each task reads as its title, then done or not done, priority, tags, deadline and link. Its actions (VO-⌘-Space) tick it, rename it, open its next step or filter by a tag.
@@ -115,7 +128,7 @@ Example: `Finish report #work !!! @fri`
 ## Your data
 
 Everything stays on your Mac, in `~/Library/Application Support/Super Simple Todo/`:
-- `Tasks.json`: your tasks
+- `Tasks.json`: your tasks, archived ones included (marked with the date they were archived)
 - `Tags.json`: your tags
 - `Activity.json`: the history behind the Activity tab
 

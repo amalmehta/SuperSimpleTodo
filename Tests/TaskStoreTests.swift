@@ -38,13 +38,15 @@ final class TaskStoreTests: XCTestCase {
         XCTAssertEqual(store.doneCount, 0)
     }
 
-    func testDeleteAndClearDone() {
+    func testDeleteAndArchiveDone() {
         let store = TaskStore(fileURL: fileURL)
         store.add("A"); store.add("B"); store.add("C")
         store.delete(store.tasks[0].id)
         store.toggle(store.tasks[0].id)
-        store.clearDone()
-        XCTAssertEqual(store.tasks.map(\.title), ["C"])
+        store.archiveDone()
+        XCTAssertEqual(store.sortedTasks.map(\.title), ["C"])
+        XCTAssertEqual(store.archivedTasks.map(\.title), ["B"])   // kept, not deleted
+        XCTAssertEqual(store.doneCount, 0)
     }
 
     func testPersistsAcrossLaunches() {
@@ -84,6 +86,8 @@ final class TaskStoreTests: XCTestCase {
         let store = TaskStore(fileURL: fileURL)
         XCTAssertEqual(store.tasks.map(\.title), ["Old"])
         XCTAssertEqual(store.tasks.first?.priority, Priority.none)
+        XCTAssertFalse(store.tasks[0].isArchived)   // no archivedAt key: on the list
+        XCTAssertNil(store.tasks[0].touchedAt)
     }
 
     func testActionsAreLoggedAndSaved() {
@@ -95,9 +99,9 @@ final class TaskStoreTests: XCTestCase {
         store.setPriority(.high, for: store.tasks[1].id) // no change, no event
         store.delete(store.tasks[1].id)
         store.toggle(store.tasks[0].id)
-        store.clearDone()
+        store.archiveDone()   // archiving isn't logged
         XCTAssertEqual(store.events.map(\.kind),
-                       [.added, .added, .completed, .uncompleted, .priorityChanged, .deleted, .completed, .deleted])
+                       [.added, .added, .completed, .uncompleted, .priorityChanged, .deleted, .completed])
         XCTAssertEqual(store.events[4].detail, "High")
         XCTAssertEqual(TaskStore(fileURL: fileURL).events.map(\.id), store.events.map(\.id))
     }
@@ -339,19 +343,19 @@ final class TaskStoreTests: XCTestCase {
 
         step { store.add("Keep #work") }
         step { store.toggle(store.tasks[0].id) }
-        step { store.clearDone() }
-        XCTAssertTrue(store.tasks.isEmpty)
-        XCTAssertEqual(undo.undoActionName, "Clear Done")
+        step { store.archiveDone() }
+        XCTAssertTrue(store.sortedTasks.isEmpty)
+        XCTAssertEqual(undo.undoActionName, "Archive Done")
 
         undo.undo()
-        XCTAssertEqual(store.tasks.map(\.title), ["Keep"])
+        XCTAssertEqual(store.sortedTasks.map(\.title), ["Keep"])
         XCTAssertTrue(store.tasks[0].isDone)
         XCTAssertEqual(store.events.map(\.kind), [.added, .completed])
-        XCTAssertEqual(TaskStore(fileURL: fileURL).tasks.map(\.title), ["Keep"])   // saved
+        XCTAssertEqual(TaskStore(fileURL: fileURL).sortedTasks.map(\.title), ["Keep"])   // saved
 
         undo.redo()
-        XCTAssertTrue(store.tasks.isEmpty)
-        XCTAssertEqual(store.events.last?.kind, .deleted)
+        XCTAssertTrue(store.sortedTasks.isEmpty)
+        XCTAssertEqual(store.archivedTasks.map(\.title), ["Keep"])
     }
 
     func testEditDeleteAndClearHistoryLeaveTasksAlone() {

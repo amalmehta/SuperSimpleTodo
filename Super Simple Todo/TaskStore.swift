@@ -40,11 +40,20 @@ final class TaskStore: ObservableObject {
         load()
     }
 
-    var doneCount: Int { tasks.filter(\.isDone).count }
+    /// Tasks on the list, in the order added (archived ones left out).
+    var activeTasks: [TaskItem] { tasks.filter { !$0.isArchived } }
 
-    /// Open tasks first, then done ones; within each, highest priority first, then the order added.
+    /// The archive: parked open tasks first, then finished ones, most recently archived first.
+    var archivedTasks: [TaskItem] { ArchiveSearch.sorted(tasks.filter(\.isArchived)) }
+
+    /// Finished tasks still on the list.
+    var doneCount: Int { tasks.filter { $0.isDone && !$0.isArchived }.count }
+
+    /// The list: open tasks first, then done ones; within each, highest priority first, then the order
+    /// added. Archived tasks aren't on it (nor on the calendar).
     var sortedTasks: [TaskItem] {
         tasks.enumerated()
+            .filter { !$0.element.isArchived }
             .sorted {
                 ($1.element.isDone ? 1 : 0, $0.element.priority, $1.offset)
                     > ($0.element.isDone ? 1 : 0, $1.element.priority, $0.offset)
@@ -86,6 +95,7 @@ final class TaskStore: ObservableObject {
         else { return }
         change("Edit Task") {
             tasks[i].title = parsed.title
+            tasks[i].touchedAt = Date()
             if let deadline = parsed.deadline { tasks[i].deadline = deadline }
             if let link = parsed.link { tasks[i].link = link }
             for name in newTags.compactMap(ensureTag) where !tasks[i].tags.contains(name) {
@@ -103,7 +113,10 @@ final class TaskStore: ObservableObject {
         guard let i = tasks.firstIndex(where: { $0.id == id }) else { return }
         let day = date.map { calendar.startOfDay(for: $0) }
         guard tasks[i].deadline != day else { return }
-        change(day == nil ? "Remove Deadline" : "Set Deadline") { tasks[i].deadline = day }
+        change(day == nil ? "Remove Deadline" : "Set Deadline") {
+            tasks[i].deadline = day
+            tasks[i].touchedAt = Date()
+        }
     }
 
     /// Sets or removes a task's link. Returns false (and changes nothing) if the text isn't a web address.
@@ -116,7 +129,10 @@ final class TaskStore: ObservableObject {
             url = parsed
         }
         guard tasks[i].link != url else { return true }
-        change(url == nil ? "Remove Link" : "Set Link") { tasks[i].link = url }
+        change(url == nil ? "Remove Link" : "Set Link") {
+            tasks[i].link = url
+            tasks[i].touchedAt = Date()
+        }
         return true
     }
 
@@ -141,6 +157,7 @@ final class TaskStore: ObservableObject {
         change("Change Priority") {
             for i in indices {
                 tasks[i].priority = priority
+                tasks[i].touchedAt = Date()
                 log(.priorityChanged, tasks[i], detail: priority.name)
             }
         }
@@ -158,6 +175,7 @@ final class TaskStore: ObservableObject {
         change(markDone ? "Complete" : "Untick") {
             for i in indices where tasks[i].isDone != markDone {
                 tasks[i].isDone = markDone
+                tasks[i].touchedAt = Date()
                 log(markDone ? .completed : .uncompleted, tasks[i])
             }
         }
@@ -175,11 +193,37 @@ final class TaskStore: ObservableObject {
         }
     }
 
-    func clearDone() {
-        guard doneCount > 0 else { return }
-        change("Clear Done") {
-            tasks.filter(\.isDone).forEach { log(.deleted, $0) }
-            tasks.removeAll(where: \.isDone)
+    /// Moves every finished task on the list to the archive (Archive Done, ⇧⌘⌫).
+    func archiveDone() {
+        let ids = Set(tasks.filter { $0.isDone && !$0.isArchived }.map(\.id))
+        archive(ids, actionName: "Archive Done")
+    }
+
+    // MARK: Archive
+
+    /// Takes tasks off the list and puts them in the archive, unchanged. Not logged in Activity.
+    func archive(_ ids: Set<UUID>, actionName: String? = nil, now: Date = Date()) {
+        let indices = tasks.indices.filter { ids.contains(tasks[$0].id) && !tasks[$0].isArchived }
+        guard !indices.isEmpty else { return }
+        change(actionName ?? (indices.count == 1 ? "Archive Task" : "Archive Tasks")) {
+            for i in indices { tasks[i].archivedAt = now }
+        }
+    }
+
+    /// Brings archived tasks back onto the list, open, as if just touched (so they don't count as
+    /// untouched straight away). A finished task comes back unticked, logged as Unticked.
+    func restore(_ ids: Set<UUID>, now: Date = Date()) {
+        let indices = tasks.indices.filter { ids.contains(tasks[$0].id) && tasks[$0].isArchived }
+        guard !indices.isEmpty else { return }
+        change(indices.count == 1 ? "Restore Task" : "Restore Tasks") {
+            for i in indices {
+                tasks[i].archivedAt = nil
+                tasks[i].touchedAt = now
+                if tasks[i].isDone {
+                    tasks[i].isDone = false
+                    log(.uncompleted, tasks[i])
+                }
+            }
         }
     }
 
@@ -232,6 +276,7 @@ final class TaskStore: ObservableObject {
               !name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         change("Change Tags") {
             guard let tag = ensureTag(name) else { return }
+            tasks[i].touchedAt = Date()
             if tasks[i].tags.contains(tag) {
                 tasks[i].tags.removeAll { $0 == tag }
             } else {
