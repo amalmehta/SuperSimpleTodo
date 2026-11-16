@@ -28,10 +28,15 @@ struct TaskItem: Identifiable, Codable, Equatable {
     /// A web page that helps with the task, shown as its next step.
     var link: URL?
     var createdAt: Date
+    /// When the task was put in the archive, or nil while it's on the list.
+    var archivedAt: Date?
+    /// The last time it was renamed, re-prioritised, tagged, given a deadline or link, ticked or
+    /// restored; nil if never. With `createdAt`, it decides when a task counts as untouched.
+    var touchedAt: Date?
 
     init(id: UUID = UUID(), title: String, isDone: Bool = false,
          priority: Priority = .none, tags: [String] = [], deadline: Date? = nil, link: URL? = nil,
-         createdAt: Date = Date()) {
+         createdAt: Date = Date(), archivedAt: Date? = nil, touchedAt: Date? = nil) {
         self.id = id
         self.title = title
         self.isDone = isDone
@@ -40,13 +45,20 @@ struct TaskItem: Identifiable, Codable, Equatable {
         self.deadline = deadline
         self.link = link
         self.createdAt = createdAt
+        self.archivedAt = archivedAt
+        self.touchedAt = touchedAt
     }
+
+    var isArchived: Bool { archivedAt != nil }
+
+    /// When the task was last added, edited or restored.
+    var lastActive: Date { max(createdAt, touchedAt ?? createdAt) }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, isDone, priority, tags, deadline, link, createdAt
+        case id, title, isDone, priority, tags, deadline, link, createdAt, archivedAt, touchedAt
     }
 
-    // Older files may lack "priority" and "tags" (sections-version files are migrated by `TaskStore`).
+    // Older files may lack "priority", "tags", "archivedAt" and "touchedAt" (sections-version files are migrated by `TaskStore`).
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
@@ -57,6 +69,8 @@ struct TaskItem: Identifiable, Codable, Equatable {
         deadline = try c.decodeIfPresent(String.self, forKey: .deadline).flatMap(Self.dayFormatter.date(from:))
         link = try c.decodeIfPresent(String.self, forKey: .link).flatMap(URL.init(string:))
         createdAt = try c.decode(Date.self, forKey: .createdAt)
+        archivedAt = try c.decodeIfPresent(Date.self, forKey: .archivedAt)
+        touchedAt = try c.decodeIfPresent(Date.self, forKey: .touchedAt)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -69,6 +83,8 @@ struct TaskItem: Identifiable, Codable, Equatable {
         try c.encodeIfPresent(deadline.map(Self.dayFormatter.string(from:)), forKey: .deadline)
         try c.encodeIfPresent(link?.absoluteString, forKey: .link)
         try c.encode(createdAt, forKey: .createdAt)
+        try c.encodeIfPresent(archivedAt, forKey: .archivedAt)
+        try c.encodeIfPresent(touchedAt, forKey: .touchedAt)
     }
 
     /// A calendar date in the user's time zone, so a deadline stays on the same day.

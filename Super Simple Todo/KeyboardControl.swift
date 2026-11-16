@@ -3,6 +3,10 @@ import Foundation
 extension Notification.Name {
     /// Sent by Tasks ▸ Priority (⌘0–⌘3) with the `Priority` as its object.
     static let setPriority = Notification.Name("SuperSimpleTodo.setPriority")
+    /// Sent by Tasks ▸ Archive Selected (⌃⌘A): archive the selected tasks, or restore them in the archive.
+    static let archiveSelection = Notification.Name("SuperSimpleTodo.archiveSelection")
+    /// Sent by View ▸ Archive (⇧⌘A): switch the Tasks tab between the list and the archive.
+    static let toggleArchive = Notification.Name("SuperSimpleTodo.toggleArchive")
 }
 
 /// How the arrow keys and list changes move the selection. Kept apart from the view so it can be tested.
@@ -34,7 +38,7 @@ enum ListNavigation {
     }
 
     /// The selection after the list changes from `old` to `new` (a delete, a tick with done tasks hidden,
-    /// Clear Done, a filter). Selected tasks still shown stay selected. If none are left, the task that
+    /// Archive Done, a filter). Selected tasks still shown stay selected. If none are left, the task that
     /// followed them is selected, or else the one before, so the keyboard keeps a place in the list.
     static func reconcile(_ selection: Set<UUID>, old: [UUID], new: [UUID]) -> Set<UUID> {
         let shown = Set(new)
@@ -56,12 +60,14 @@ enum ShortcutGuide {
         ("↑ ↓", "Move the selection (↓ from the add field goes to the list)"),
         ("Space", "Tick or untick the selected tasks"),
         ("⌫", "Delete the selected tasks"),
+        ("⌃⌘A", "Archive the selected tasks (in the archive: restore them)"),
+        ("⇧⌘A", "Show or leave the archive"),
         ("⌘Z / ⇧⌘Z", "Undo / redo"),
         ("⌘1 / ⌘2 / ⌘3", "Priority Low / Medium / High"),
         ("⌘0", "No priority"),
         ("#", "Suggest tags in the add field (↑ ↓ to pick, Tab or Return to add)"),
-        ("Esc", "Stop renaming, close tag suggestions, or clear the tag filter"),
-        ("⇧⌘⌫", "Clear done tasks"),
+        ("Esc", "Stop renaming, close suggestions, clear the tag filter, or leave the archive"),
+        ("⇧⌘⌫", "Archive done tasks"),
         ("⌥⌘1 / ⌥⌘2 / ⌥⌘3", "Tasks / Calendar / Activity tab"),
         ("⌘,", "Settings"),
     ]

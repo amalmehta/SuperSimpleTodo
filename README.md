@@ -12,7 +12,7 @@ A friendly, very simple Mac checklist: one list, priorities shown by color, opti
   <img src="docs/images/activity.png" width="270" alt="Activity tab: actions per day as stacked bars, with a timeline below">
 </p>
 
-Type `Run 5k #fitness !! @fri` → a Medium-priority task tagged Fitness, due Friday. Paste a link into a task and it shows underneath as the next step; tasks without one offer **Ask Claude how to start**. Type `#` to pick a tag, click a tag to filter (Esc clears it), double-click to rename, ⌘Z to undo.
+Type `Run 5k #fitness !! @fri` → a Medium-priority task tagged Fitness, due Friday. Paste a link into a task and it shows underneath as the next step; tasks without one offer **Ask Claude how to start**. Type `#` to pick a tag, click a tag to filter (Esc clears it), double-click to rename, ⌘Z to undo. Right-click ▸ **Archive** parks a task that isn't for now; **Archived** at the bottom brings it back, and so does typing its name again.
 
 | Circle | Priority | Type at the end |
 |---|---|---|
@@ -26,6 +26,7 @@ flowchart LR
     You((You)) --> Tasks[Tasks tab] & Calendar[Calendar tab] & Activity[Activity tab] & Settings["Settings (⌘,)"]
     Tasks & Calendar & Activity & Settings --> Store[TaskStore]
     Store --> Tasks & Calendar & Activity
+    Tasks --> Archive["Archive (⇧⌘A)"] --> Store
     Store --> Files[("Tasks.json · Tags.json · Activity.json")]
 ```
 
@@ -33,3 +34,4 @@ flowchart LR
 - [How to set up, run and use it](docs/INSTRUCTIONS.md)
 - [System design](docs/SYSTEM-DESIGN.md)
 - [What's where](docs/FILE-STRUCTURE.md)
+- [Prompt log](docs/PROMPTS.md)

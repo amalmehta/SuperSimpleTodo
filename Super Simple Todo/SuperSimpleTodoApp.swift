@@ -27,6 +27,8 @@ struct SuperSimpleTodoApp: App {
                     .keyboardShortcut("2", modifiers: [.command, .option])
                 Button("Activity") { NotificationCenter.default.post(name: .showTab, object: "activity") }
                     .keyboardShortcut("3", modifiers: [.command, .option])
+                Button("Archive") { NotificationCenter.default.post(name: .toggleArchive, object: nil) }
+                    .keyboardShortcut("a", modifiers: [.command, .shift])
                 Divider()
             }
             CommandMenu("Tasks") {
@@ -38,7 +40,9 @@ struct SuperSimpleTodoApp: App {
                     .keyboardShortcut(KeyEquivalent(Character("\(p.rawValue)")))
                 }
                 Divider()
-                Button("Clear Done") { store.clearDone() }
+                Button("Archive Selected") { NotificationCenter.default.post(name: .archiveSelection, object: nil) }
+                    .keyboardShortcut("a", modifiers: [.command, .control])
+                Button("Archive Done") { store.archiveDone() }
                     .keyboardShortcut(.delete, modifiers: [.command, .shift])
                     .disabled(store.doneCount == 0)
             }

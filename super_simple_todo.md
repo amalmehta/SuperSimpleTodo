@@ -460,8 +460,27 @@ Decided without asking (2026-10-21, tag autocomplete and filter):
 - Esc clears the tag filter from the list or from the add field (when no suggestions are showing). Clicking another tag switches the filter; one tag at a time, as before.
 - The filter moved into its own type (TagFilter.swift), and TaskStore.visibleTasks uses it.
 
+Asked and answered (2026-11-14, archive):
+- Request: "create the ability to archive old tasks and pull them back when relevasnt".
+- What goes in: open tasks that aren't for now (archived by hand), and tasks that went stale.
+- Stale: offered by a quiet bar above the list ("Archive Them" / "Not Now"), never moved automatically. Untouched means no add, edit, tick or restore for 30 days.
+- Coming back: by hand from a searchable archive, and offered under the add field while typing a matching task.
+- Where: an "Archived N" toggle in the Tasks tab's footer (no new tab).
+- Clear Done: archives instead of deleting. The archive is mixed: open (parked) tasks first, finished ones below, and Restore brings a task back open.
+
+Decided without asking (2026-11-14, archive):
+- Definitions: "archived" = the task has an archivedAt date; it stays in Tasks.json and is left off the list, calendar and counts. "Untouched" = open, on the list, and the later of createdAt and touchedAt is 30+ calendar days ago. A search "match" = every typed word starts a word of the title or a tag (case and accents ignored); the add field offers matches after 3 letters, at most 3, newest archived first.
+- Clear Done is renamed Archive Done (same ⇧⌘⌫), so the button says what it does.
+- Shortcuts: ⌃⌘A archives the selection (restores it in the archive), ⇧⌘A opens or leaves the archive. Return restores in the archive; ⌫ there deletes for good (undoable).
+- The add field restores only after ↓ picks a match; plain Return still adds the typed task.
+- Archiving isn't an Activity event (keeps the chart's five colours); restoring a finished task logs Unticked.
+- Not Now remembers which untouched tasks were showing; the bar returns only when another task goes stale.
+- Export keeps format version 1: archivedAt and touchedAt are optional fields, so older files import and older builds ignore them.
+- Deferred: snoozing to a date ("archive until March"), auto-archiving, trimming old finished tasks from the archive, and a setting for the 30-day threshold.
+
 CHANGELOG:
 
+- 2026-11-14 — archive: right-click ▸ Archive or ⌃⌘A parks tasks; Clear Done became Archive Done; a bar offers to archive tasks untouched for 30+ days; "Archived N" opens a searchable archive (Return restores, open); typing a matching task offers to bring it back; archivedAt/touchedAt saved and exported (format version 1 kept); docs/PROMPTS.md started; 85 unit tests
 - 2026-10-21 — "#" in the add field suggests tags (most used first, narrowed as you type, Tab or Return to accept, Esc to close); the tag filter shows as a removable token and Esc clears it; filter and autocomplete logic in TagFilter.swift; 62 unit tests
 - 2026-10-21 — sections data from earlier versions is now migrated to tags once on load (saved straight away, Sections.json kept as Sections.migrated.json, old collapsed-sections preference cleared); section handling removed from tasks and history; upgrade tests against a sections-version fixture; 54 unit tests (an earlier Sections.migrated.json gets a dated name instead of blocking the rename)
 - 2026-10-21 — Ask Claude now opens a new chat in the Claude desktop app instead of the browser (browser only if the app isn't installed)
