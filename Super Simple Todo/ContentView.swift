@@ -703,11 +703,15 @@ struct AddTaskField: View {
             .stroke(focused.wrappedValue ? Color.accentColor.opacity(0.6) : Theme.cardStroke))
         .help("Add #tag to tag it (a new #name makes a new tag), !, !! or !!! for Low, Medium or High priority, @today, @fri or @oct30 for a deadline, and paste a link to make it the next step")
         .overlay(alignment: .bottomLeading) {
-            if !suggestions.isEmpty {
-                TagSuggestions(tags: suggestions, counts: TagAutocomplete.useCounts(in: tasks),
-                               highlighted: min(highlighted, suggestions.count - 1), onPick: accept)
-                    .padding(.leading, 30)
-                    .alignmentGuide(.bottom) { $0[.top] - 4 }
+            // A zero-height anchor on the field's bottom edge, so the list hangs below it.
+            Color.clear.frame(height: 0).overlay(alignment: .topLeading) {
+                if !suggestions.isEmpty {
+                    TagSuggestions(tags: suggestions, counts: TagAutocomplete.useCounts(in: tasks),
+                                   highlighted: min(highlighted, suggestions.count - 1), onPick: accept)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.leading, 30)
+                        .padding(.top, 4)
+                }
             }
         }
     }
