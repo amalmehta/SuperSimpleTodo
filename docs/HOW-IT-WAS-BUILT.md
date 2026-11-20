@@ -6,7 +6,7 @@ Super Simple Todo is a small Mac app for one person who wants a plain list of ta
 ## Build history
 
 ```mermaid
-flowchart LR
+flowchart TD
     idea["Idea - a very straightforward list that keeps track of tasks done"] --> spec["Spec - a Mac app"]
     spec --> m1["M1 First app - 2026-10-06"]
     dPri["Decisions - High, Medium, Low; auto-sort by priority; colored circle; right-click + keys; hover + one-line key"] --> m2
